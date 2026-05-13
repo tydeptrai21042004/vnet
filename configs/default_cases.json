@@ -1,0 +1,147 @@
+{
+  "global": {
+    "duration_s": 90.0,
+    "step_length_s": 0.1,
+    "seed": 42,
+    "vehicle_length_m": 4.5,
+    "collision_gap_m": 0.7,
+    "safe_ttc_s": 3.0,
+    "driver_reaction_time_s": 1.0,
+    "visual_detection_ttc_s": 1.2,
+    "visual_detection_gap_m": 6.0
+  },
+  "synthetic_platoon": {
+    "num_vehicles": 10,
+    "initial_speed_mps": 22.0,
+    "gap_m": 18.0,
+    "incident_time_s": 20.0,
+    "incident_vehicle_index": 0,
+    "emergency_decel_mps2": 8.0,
+    "normal_decel_mps2": 3.5,
+    "warning_decel_mps2": 6.0,
+    "min_speed_after_warning_mps": 4.0
+  },
+  "channel_default": {
+    "communication_range_m": 150.0,
+    "delay_s": 0.15,
+    "loss_probability": 0.0,
+    "rebroadcast_delay_s": 0.05,
+    "max_hops": 1
+  },
+  "cases": [
+    {
+      "id": "C0_normal_no_incident_baseline",
+      "name": "Baseline 0 - normal traffic, no incident",
+      "description_vi": "Xe chạy bình thường, không có phanh gấp, dùng để kiểm tra mô phỏng ổn định.",
+      "incident_enabled": false,
+      "warning_enabled": false,
+      "multi_hop": false,
+      "channel": {
+        "communication_range_m": 150.0,
+        "delay_s": 0.15,
+        "loss_probability": 0.0,
+        "max_hops": 1
+      }
+    },
+    {
+      "id": "C1_sudden_brake_no_warning_baseline",
+      "name": "Scenario 1 baseline - sudden brake without VANET warning",
+      "description_vi": "Xe trước phanh gấp, không có cảnh báo VANET. Đây là baseline chính.",
+      "incident_enabled": true,
+      "warning_enabled": false,
+      "multi_hop": false,
+      "channel": {
+        "communication_range_m": 150.0,
+        "delay_s": 0.15,
+        "loss_probability": 0.0,
+        "max_hops": 1
+      }
+    },
+    {
+      "id": "C2_sudden_brake_direct_v2v",
+      "name": "Scenario 2 - sudden brake with direct V2V warning",
+      "description_vi": "Xe trước phanh gấp và phát cảnh báo trực tiếp cho xe lân cận trong vùng phủ sóng.",
+      "incident_enabled": true,
+      "warning_enabled": true,
+      "multi_hop": false,
+      "channel": {
+        "communication_range_m": 150.0,
+        "delay_s": 0.15,
+        "loss_probability": 0.0,
+        "max_hops": 1
+      }
+    },
+    {
+      "id": "C3_platoon_no_warning_baseline",
+      "name": "Scenario 3 baseline - platoon without warning",
+      "description_vi": "Nhiều xe chạy theo đoàn, xe đầu phanh gấp, không dùng cảnh báo. Baseline cho kiểm tra lan truyền.",
+      "incident_enabled": true,
+      "warning_enabled": false,
+      "multi_hop": false,
+      "synthetic_override": {
+        "num_vehicles": 18,
+        "gap_m": 16.0
+      },
+      "channel": {
+        "communication_range_m": 70.0,
+        "delay_s": 0.15,
+        "loss_probability": 0.0,
+        "max_hops": 1
+      }
+    },
+    {
+      "id": "C4_platoon_direct_v2v_limited_range",
+      "name": "Technical baseline - platoon direct V2V with limited range",
+      "description_vi": "Đoàn xe dài, chỉ truyền trực tiếp một chặng. Dùng để thấy xe xa không nhận được cảnh báo.",
+      "incident_enabled": true,
+      "warning_enabled": true,
+      "multi_hop": false,
+      "synthetic_override": {
+        "num_vehicles": 18,
+        "gap_m": 16.0
+      },
+      "channel": {
+        "communication_range_m": 70.0,
+        "delay_s": 0.15,
+        "loss_probability": 0.0,
+        "max_hops": 1
+      }
+    },
+    {
+      "id": "C5_platoon_multihop_broadcast",
+      "name": "Scenario 3 - platoon with multi-hop V2V broadcast",
+      "description_vi": "Đoàn xe dài, xe nhận cảnh báo phát lại cho xe phía sau để kiểm tra cảnh báo lan truyền.",
+      "incident_enabled": true,
+      "warning_enabled": true,
+      "multi_hop": true,
+      "synthetic_override": {
+        "num_vehicles": 18,
+        "gap_m": 16.0
+      },
+      "channel": {
+        "communication_range_m": 70.0,
+        "delay_s": 0.15,
+        "loss_probability": 0.0,
+        "max_hops": 8
+      }
+    },
+    {
+      "id": "C6_v2v_delay_loss_stress",
+      "name": "Stress case - V2V warning with high delay and packet loss",
+      "description_vi": "Có cảnh báo nhưng kênh truyền bị trễ và mất gói, dùng để đánh giá độ bền hệ thống.",
+      "incident_enabled": true,
+      "warning_enabled": true,
+      "multi_hop": true,
+      "synthetic_override": {
+        "num_vehicles": 18,
+        "gap_m": 16.0
+      },
+      "channel": {
+        "communication_range_m": 70.0,
+        "delay_s": 0.65,
+        "loss_probability": 0.25,
+        "max_hops": 8
+      }
+    }
+  ]
+}
