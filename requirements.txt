@@ -1,0 +1,9 @@
+numpy>=1.23
+pandas>=1.5
+matplotlib>=3.7
+# Optional for OpenStreetMap download by bounding box. Not needed if you already have .osm/.osm.xml.
+osmnx>=1.9; python_version >= '3.9'
+# Optional pip versions of SUMO TraCI bindings. Ubuntu SUMO packages also provide these through $SUMO_HOME/tools.
+traci>=1.18
+sumolib>=1.18
+tabulate
