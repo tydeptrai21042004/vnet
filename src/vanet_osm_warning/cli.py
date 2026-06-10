@@ -16,14 +16,17 @@ def run_demo(args: argparse.Namespace) -> None:
     cfg = ProjectConfig.load(args.config)
     out_dir = ensure_dir(args.out)
     metrics = []
-    runner = SyntheticPlatoonRunner(cfg.global_cfg, seed=int(cfg.global_cfg.get("seed", 42)))
-    for case in cfg.cases:
+    base_seed = int(cfg.global_cfg.get("seed", 42))
+    for idx, case in enumerate(cfg.cases):
+        runner = SyntheticPlatoonRunner(cfg.global_cfg, seed=base_seed + idx)
         if args.case and case["id"] != args.case:
             continue
         sim_cfg = cfg.merged_synthetic_for_case(case)
         channel_cfg = cfg.merged_channel_for_case(case)
         print(f"[DEMO] Running {case['id']}")
-        metrics.append(runner.run_case(case, sim_cfg, channel_cfg, out_dir))
+        v2i_cfg = cfg.merged_v2i_for_case(case)
+        rsus_cfg = cfg.rsus_for_case(case)
+        metrics.append(runner.run_case(case, sim_cfg, channel_cfg, out_dir, v2i_cfg=v2i_cfg, rsus_cfg=rsus_cfg))
     write_summary_csv(metrics, out_dir / "summary_metrics.csv")
     write_markdown_report(metrics, out_dir / "summary_report.md")
     plot_all_trajectories(out_dir)
@@ -48,6 +51,8 @@ def preprocess(args: argparse.Namespace) -> None:
         period_s=args.period,
         seed=args.seed,
         step_length_s=args.step_length,
+        min_vehicles=args.min_vehicles,
+        force_fallback=args.force_fallback,
     )
     print(f"[OK] SUMO config created: {sumocfg}")
 
@@ -56,13 +61,16 @@ def simulate_sumo(args: argparse.Namespace) -> None:
     cfg = ProjectConfig.load(args.config)
     out_dir = ensure_dir(args.out)
     metrics = []
-    runner = SumoTraciRunner(cfg.global_cfg, seed=int(cfg.global_cfg.get("seed", 42)), gui=args.gui)
-    for case in cfg.cases:
+    base_seed = int(cfg.global_cfg.get("seed", 42))
+    for idx, case in enumerate(cfg.cases):
+        runner = SumoTraciRunner(cfg.global_cfg, seed=base_seed + idx, gui=args.gui)
         if args.case and case["id"] != args.case:
             continue
         channel_cfg = cfg.merged_channel_for_case(case)
         print(f"[SUMO] Running {case['id']}")
-        metrics.append(runner.run_case(case, args.sumocfg, channel_cfg, out_dir))
+        v2i_cfg = cfg.merged_v2i_for_case(case)
+        rsus_cfg = cfg.rsus_for_case(case)
+        metrics.append(runner.run_case(case, args.sumocfg, channel_cfg, out_dir, v2i_cfg=v2i_cfg, rsus_cfg=rsus_cfg))
     write_summary_csv(metrics, out_dir / "summary_metrics.csv")
     write_markdown_report(metrics, out_dir / "summary_report.md")
     plot_all_trajectories(out_dir)
@@ -101,6 +109,8 @@ def make_parser() -> argparse.ArgumentParser:
     pre.add_argument("--period", type=float, default=1.0)
     pre.add_argument("--seed", type=int, default=42)
     pre.add_argument("--step-length", type=float, default=0.1)
+    pre.add_argument("--min-vehicles", type=int, default=30, help="Minimum vehicles required in the generated route file before fallback is used")
+    pre.add_argument("--force-fallback", action="store_true", help="Skip randomTrips and directly write deterministic visible routes")
     pre.set_defaults(func=preprocess)
 
     sim = sub.add_parser("simulate-sumo", help="Run VANET cases on a SUMO .sumocfg")
@@ -122,6 +132,8 @@ def make_parser() -> argparse.ArgumentParser:
     ro.add_argument("--period", type=float, default=1.0)
     ro.add_argument("--seed", type=int, default=42)
     ro.add_argument("--step-length", type=float, default=0.1)
+    ro.add_argument("--min-vehicles", type=int, default=30, help="Minimum vehicles required in the generated route file before fallback is used")
+    ro.add_argument("--force-fallback", action="store_true", help="Skip randomTrips and directly write deterministic visible routes")
     ro.add_argument("--case", default=None)
     ro.add_argument("--gui", action="store_true")
     ro.set_defaults(func=run_osm)

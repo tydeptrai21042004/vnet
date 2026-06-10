@@ -13,15 +13,30 @@ def write_markdown_report(metrics: Iterable[CaseMetrics], out_path: str | Path) 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     df = pd.DataFrame([m.as_dict() for m in metrics])
     md = []
-    md.append("# VANET Collision Warning Simulation Report\n")
+    md.append("# VANET V2V/V2I Collision Warning Simulation Report\n")
     md.append("## Experiment cases\n")
     md.append(df.to_markdown(index=False))
-    md.append("\n\n## How to read the metrics\n")
-    md.append("- **collisions**: number of rear-end collision events detected. Lower is better.\n")
-    md.append("- **pdr**: packet delivery ratio for warning messages. Higher is better.\n")
-    md.append("- **avg_delay_s**: average warning delay. Lower is better.\n")
-    md.append("- **reaction_gain_s**: how much earlier the rear vehicles receive a warning compared with pure visual detection baseline. Higher is better.\n")
-    md.append("- **min_gap_m**: minimum bumper-to-bumper distance observed. Higher is safer.\n")
-    md.append("\n## Recommended discussion for the thesis\n")
-    md.append("The baseline without VANET should be compared against direct V2V and multi-hop V2V. If direct V2V improves the first few following vehicles but fails for a long platoon, the multi-hop broadcast case demonstrates why warning propagation is needed. The delay/loss stress case should be used to explain that VANET safety applications require low delay and reliable delivery.\n")
+    md.append("\n\n## Metric definitions\n")
+    md.append("- **communication_mode**: `none`, `v2v`, `v2i`, or `hybrid`.\n")
+    md.append("- **protocol**: abstract communication protocol profile used by the delay/packet model.\n")
+    md.append("- **packet_size_bytes**: warning packet size. Larger packets increase transmission delay and communication overhead.\n")
+    md.append("- **packet_pdr**: packet-level delivery ratio = delivered packets / sent packets.\n")
+    md.append("- **receiver_coverage**: warned affected vehicles / target affected vehicles. This is separated from packet PDR.\n")
+    md.append("- **avg_delay_s** and **max_delay_s**: delay from accident creation to warning reception.\n")
+    md.append("- **bytes_sent** and **channel_load**: communication overhead indicators.\n")
+    md.append("- **collisions** and **min_gap_m**: traffic safety indicators. Lower collisions and higher gap are better.\n")
+    md.append("\n## Recommended discussion\n")
+    md.append(
+        "Compare the no-warning baseline against V2V, V2I, and hybrid communication. "
+        "Direct V2V is usually fast and infrastructure-free, but its range is limited. "
+        "Multi-hop V2V increases coverage but can increase delay and packet overhead. "
+        "V2I uses roadside units, so coverage depends on RSU placement and RSU range. "
+        "The hybrid mode combines local V2V warning with infrastructure-assisted warning and is expected to provide the most robust coverage at the cost of higher overhead.\n"
+    )
+    md.append("\n## Packet-size/protocol discussion\n")
+    md.append(
+        "Use the generated packet-size plots to explain how larger packets increase transmission time, bytes sent, and channel load. "
+        "If packet loss is enabled, packet PDR and receiver coverage may decrease. "
+        "This gives a direct experiment for evaluating the impact of communication protocol parameters and packet size on VANET safety performance.\n"
+    )
     out_path.write_text("\n".join(md), encoding="utf-8")
