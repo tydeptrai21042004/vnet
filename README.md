@@ -533,3 +533,30 @@ safety messages.
 - For a more realistic network study, integrate ns-3, Veins, OMNeT++, or Plexe.
 - The current implementation is suitable for a university project/thesis simulation where SUMO is used for traffic behavior and a Python model is used for V2X communication delay/loss.
 - The pure Python demo is deterministic and easy to test; SUMO mode depends on the selected map, vehicle flow, and SUMO route generation.
+
+---
+
+## Patch note: fixed accident location and Excel export
+
+This version includes a practical correction for project defense/testing:
+
+- SUMO accident-enabled cases now keep trying until `incident_started` is actually created.
+- SUMO incident location is fixed/configurable through `sumo_fixed_incident` in `configs/default_cases.json`.
+- If the exact fixed location has no vehicle, the code waits and then uses a controlled fallback so accident cases do not become empty.
+- Every run exports `results.xlsx`, `incident_locations.csv`, and `validation_report.csv`.
+- `run_case_gui.sh all` now produces one combined GUI result workbook in `results/gui_all/results.xlsx` instead of separate one-row summaries only.
+
+For the new uploaded map, use:
+
+```bash
+./run_vanet_osm_ubuntu.sh osm-file data/osm/map_td.osm all results/osm_map_td
+python scripts/validate_results.py results/osm_map_td
+```
+
+Open:
+
+```text
+results/osm_map_td/results.xlsx
+```
+
+The `incident_locations` sheet shows the accident time, vehicle, edge, lane, lane position, and SUMO x-y coordinates for each case.

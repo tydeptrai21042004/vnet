@@ -7,3 +7,6 @@ osmnx>=1.9; python_version >= '3.9'
 traci>=1.18
 sumolib>=1.18
 tabulate
+
+# Required for results.xlsx export.
+openpyxl>=3.1

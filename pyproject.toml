@@ -1,0 +1,39 @@
+[project]
+name = "vanet-osm-warning"
+version = "1.1.0"
+description = "VANET V2V/V2I road-accident warning simulation with SUMO/TraCI and fixed incident exports"
+requires-python = ">=3.9"
+dependencies = [
+  "numpy>=1.23",
+  "pandas>=1.5",
+  "matplotlib>=3.7",
+  "tabulate",
+  "openpyxl>=3.1",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8",
+]
+sumo = [
+  "traci>=1.18",
+  "sumolib>=1.18",
+]
+osm = [
+  "osmnx>=1.9",
+]
+
+[project.scripts]
+vanet-warning = "vanet_osm_warning.cli:main"
+
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-q"

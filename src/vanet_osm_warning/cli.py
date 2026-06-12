@@ -4,7 +4,7 @@ import argparse
 from pathlib import Path
 
 from .config import ProjectConfig
-from .metrics import ensure_dir, write_summary_csv
+from .metrics import ensure_dir, write_result_exports
 from .plots import plot_all_trajectories
 from .report import write_markdown_report
 from .sumo_tools import download_osm_by_bbox, preprocess_osm
@@ -27,7 +27,7 @@ def run_demo(args: argparse.Namespace) -> None:
         v2i_cfg = cfg.merged_v2i_for_case(case)
         rsus_cfg = cfg.rsus_for_case(case)
         metrics.append(runner.run_case(case, sim_cfg, channel_cfg, out_dir, v2i_cfg=v2i_cfg, rsus_cfg=rsus_cfg))
-    write_summary_csv(metrics, out_dir / "summary_metrics.csv")
+    write_result_exports(metrics, out_dir)
     write_markdown_report(metrics, out_dir / "summary_report.md")
     plot_all_trajectories(out_dir)
     print(f"[OK] Demo results saved to: {out_dir}")
@@ -66,12 +66,14 @@ def simulate_sumo(args: argparse.Namespace) -> None:
         runner = SumoTraciRunner(cfg.global_cfg, seed=base_seed + idx, gui=args.gui)
         if args.case and case["id"] != args.case:
             continue
-        channel_cfg = cfg.merged_channel_for_case(case)
-        print(f"[SUMO] Running {case['id']}")
-        v2i_cfg = cfg.merged_v2i_for_case(case)
-        rsus_cfg = cfg.rsus_for_case(case)
-        metrics.append(runner.run_case(case, args.sumocfg, channel_cfg, out_dir, v2i_cfg=v2i_cfg, rsus_cfg=rsus_cfg))
-    write_summary_csv(metrics, out_dir / "summary_metrics.csv")
+        case_runtime = dict(case)
+        case_runtime["sumo_fixed_incident"] = cfg.sumo_incident_for_case(case)
+        channel_cfg = cfg.merged_channel_for_case(case_runtime)
+        print(f"[SUMO] Running {case_runtime['id']}")
+        v2i_cfg = cfg.merged_v2i_for_case(case_runtime)
+        rsus_cfg = cfg.rsus_for_case(case_runtime)
+        metrics.append(runner.run_case(case_runtime, args.sumocfg, channel_cfg, out_dir, v2i_cfg=v2i_cfg, rsus_cfg=rsus_cfg))
+    write_result_exports(metrics, out_dir)
     write_markdown_report(metrics, out_dir / "summary_report.md")
     plot_all_trajectories(out_dir)
     print(f"[OK] SUMO results saved to: {out_dir}")

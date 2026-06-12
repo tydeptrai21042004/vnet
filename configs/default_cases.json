@@ -252,5 +252,20 @@
         "max_hops": 8
       }
     }
-  ]
+  ],
+  "sumo_fixed_incident": {
+    "enabled": true,
+    "edge_id": "",
+    "lane_id": "",
+    "position_m": null,
+    "time_s": 25.0,
+    "search_radius_m": 80.0,
+    "fallback_after_s": 8.0,
+    "min_speed_mps": 1.0,
+    "target_radius_m": 600.0,
+    "auto_position_ratio": 0.55,
+    "wait_log_interval_s": 1.0,
+    "slow_down_duration_s": 2.0,
+    "note": "Leave edge_id/lane_id empty to auto-lock a deterministic fixed accident point on the densest lane. After a SUMO run, check results/incident_locations.csv or results.xlsx."
+  }
 }

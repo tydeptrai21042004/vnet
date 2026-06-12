@@ -15,6 +15,7 @@ class ProjectConfig:
     protocols: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     v2i_default: Dict[str, Any] = field(default_factory=dict)
     rsus: List[Dict[str, Any]] = field(default_factory=list)
+    sumo_fixed_incident: Dict[str, Any] = field(default_factory=dict)
 
     @staticmethod
     def load(path: str | Path) -> "ProjectConfig":
@@ -29,6 +30,7 @@ class ProjectConfig:
             protocols=raw.get("protocols", {}),
             v2i_default=raw.get("v2i_default", {}),
             rsus=raw.get("rsus", []),
+            sumo_fixed_incident=raw.get("sumo_fixed_incident", {}),
         )
 
     def merged_synthetic_for_case(self, case: Dict[str, Any]) -> Dict[str, Any]:
@@ -69,3 +71,8 @@ class ProjectConfig:
 
     def rsus_for_case(self, case: Dict[str, Any]) -> List[Dict[str, Any]]:
         return case.get("rsus", self.rsus)
+
+    def sumo_incident_for_case(self, case: Dict[str, Any]) -> Dict[str, Any]:
+        cfg = dict(self.sumo_fixed_incident)
+        cfg.update(case.get("sumo_fixed_incident", {}))
+        return cfg

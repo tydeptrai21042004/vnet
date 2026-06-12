@@ -113,7 +113,11 @@ class V2VChannel:
                 )
                 continue
             tx_delay_s = self.transmission_delay_s() if self.protocol_mode else None
-            deliver_time_s = now_s + self.one_hop_delay_s() + (hop - 1) * self.rebroadcast_delay_s
+            # now_s is already the actual send/rebroadcast time. Add only the
+            # current-hop protocol delay plus one local rebroadcast delay for
+            # hops after the first. Do not add cumulative delays again here.
+            rebroadcast_extra_s = self.rebroadcast_delay_s if hop > 1 else 0.0
+            deliver_time_s = now_s + rebroadcast_extra_s + self.one_hop_delay_s()
             msg = WarningMessage(
                 msg_id=f"{origin_id}_{sender.vid}_{receiver.vid}_{hop}_{len(self.pending)}",
                 origin_id=origin_id,

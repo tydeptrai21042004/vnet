@@ -230,6 +230,12 @@ class SyntheticPlatoonRunner:
                     speed_mps=round(leader.speed_mps, 4),
                     communication_mode=communication_mode,
                     control_algorithm=control_algorithm,
+                    edge_id="synthetic_platoon",
+                    lane_id="synthetic_lane_0",
+                    lane_position_m=round(leader.x_m, 4),
+                    x_m=round(leader.x_m, 4),
+                    y_m=round(leader.y_m, 4),
+                    fixed_incident=True,
                 )
                 if warning_enabled:
                     if communication_mode in {"v2v", "hybrid"}:
@@ -402,6 +408,12 @@ class SyntheticPlatoonRunner:
         packet_size_bytes = channel.total_packet_size_bytes if communication_mode == "v2v" else v2i.total_packet_size_bytes if communication_mode == "v2i" else max(channel.total_packet_size_bytes, v2i.total_packet_size_bytes) if communication_mode == "hybrid" else None
         data_rate_bps = channel.data_rate_bps if communication_mode == "v2v" else v2i.data_rate_bps if communication_mode == "v2i" else min(channel.data_rate_bps, v2i.data_rate_bps) if communication_mode == "hybrid" else None
 
+        incident_expected = bool(case.get("incident_enabled", True))
+        incident_vehicle = vehicles[incident_idx].vid if incident_started and incident_enabled else None
+        incident_x = vehicles[incident_idx].x_m if incident_started and incident_enabled else None
+        incident_y = vehicles[incident_idx].y_m if incident_started and incident_enabled else None
+        result_status = "OK" if (not incident_expected or incident_started) else "ERROR_NO_INCIDENT"
+
         return CaseMetrics(
             case_id=case["id"],
             case_name=case.get("name", case["id"]),
@@ -436,4 +448,14 @@ class SyntheticPlatoonRunner:
             v2i_lost_packets=v2i.lost_packets,
             v2i_bytes_sent=v2i.bytes_sent,
             rsu_count=len(rsus) if communication_mode in {"v2i", "hybrid"} else 0,
+            incident_expected=incident_expected,
+            incident_started=incident_started,
+            incident_vehicle=incident_vehicle,
+            incident_time_s=incident_time if incident_started and incident_enabled else None,
+            incident_edge_id="synthetic_platoon" if incident_started and incident_enabled else None,
+            incident_lane_id="synthetic_lane_0" if incident_started and incident_enabled else None,
+            incident_lane_position_m=incident_x,
+            incident_x_m=incident_x,
+            incident_y_m=incident_y,
+            result_status=result_status,
         )

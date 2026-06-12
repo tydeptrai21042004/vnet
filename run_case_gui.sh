@@ -115,7 +115,26 @@ run_gui_case() {
     --case "$case_id" \
     --gui
 
-  echo "[OK] Result saved in: $out_dir"
+  echo "[OK] Single-case result saved in: $out_dir"
+  echo "[INFO] A single-case run intentionally has only one summary row. Use './run_case_gui.sh all' for one combined Excel file."
+}
+
+run_gui_all_combined() {
+  local out_dir="results/gui_all"
+
+  echo ""
+  echo "============================================================"
+  echo "[RUN GUI] all cases with one combined result workbook"
+  echo "============================================================"
+
+  python -m vanet_osm_warning.cli simulate-sumo \
+    --config "$CONFIG_FILE" \
+    --sumocfg "$SUMOCFG" \
+    --out "$out_dir" \
+    --gui
+
+  echo "[OK] Combined GUI results saved in: $out_dir"
+  echo "[OK] Open this workbook: $out_dir/results.xlsx"
 }
 
 # Optional non-interactive usage:
@@ -133,12 +152,7 @@ check_inputs
 load_cases
 if [ -n "$REQUESTED" ]; then
   if [ "$REQUESTED" = "all" ] || [ "$REQUESTED" = "A" ] || [ "$REQUESTED" = "a" ]; then
-    for line in "${CASE_LINES[@]}"; do
-      IFS=$'\t' read -r cid _ <<< "$line"
-      run_gui_case "$cid"
-      echo ""
-      read -rp "Press Enter to continue to the next case..."
-    done
+    run_gui_all_combined
     exit 0
   fi
 
@@ -180,13 +194,8 @@ case "$CHOICE" in
     exit 0
     ;;
   a|A)
-    echo "[INFO] Running all cases in GUI mode..."
-    for line in "${CASE_LINES[@]}"; do
-      IFS=$'\t' read -r cid _ <<< "$line"
-      run_gui_case "$cid"
-      echo ""
-      read -rp "Press Enter to continue to the next case..."
-    done
+    echo "[INFO] Running all cases in GUI mode with one combined output folder..."
+    run_gui_all_combined
     ;;
   *)
     if ! [[ "$CHOICE" =~ ^[0-9]+$ ]]; then

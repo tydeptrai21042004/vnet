@@ -92,6 +92,20 @@ class CaseMetrics:
     v2i_bytes_sent: int = 0
     rsu_count: int = 0
 
+    # Incident audit fields. These make the exported CSV/Excel defensible in a
+    # presentation: every accident-enabled case should show where and when the
+    # incident actually started.
+    incident_expected: bool = True
+    incident_started: bool = False
+    incident_vehicle: Optional[str] = None
+    incident_time_s: Optional[float] = None
+    incident_edge_id: Optional[str] = None
+    incident_lane_id: Optional[str] = None
+    incident_lane_position_m: Optional[float] = None
+    incident_x_m: Optional[float] = None
+    incident_y_m: Optional[float] = None
+    result_status: str = "UNKNOWN"
+
     def as_dict(self) -> dict:
         return {
             "case_id": self.case_id,
@@ -127,4 +141,14 @@ class CaseMetrics:
             "v2i_lost_packets": self.v2i_lost_packets,
             "v2i_bytes_sent": self.v2i_bytes_sent,
             "rsu_count": self.rsu_count,
+            "incident_expected": self.incident_expected,
+            "incident_started": self.incident_started,
+            "incident_vehicle": self.incident_vehicle,
+            "incident_time_s": self.incident_time_s,
+            "incident_edge_id": self.incident_edge_id,
+            "incident_lane_id": self.incident_lane_id,
+            "incident_lane_position_m": self.incident_lane_position_m,
+            "incident_x_m": self.incident_x_m,
+            "incident_y_m": self.incident_y_m,
+            "result_status": self.result_status,
         }
