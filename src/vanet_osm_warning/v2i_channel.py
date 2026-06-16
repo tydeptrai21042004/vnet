@@ -7,6 +7,7 @@ from typing import Iterable, List, Optional
 
 from .models import EventLog, VehicleState, WarningMessage
 from .protocols import compute_protocol_delay_s, compute_tx_delay_s
+from .reliability import packet_error_rate
 
 
 @dataclass
@@ -33,6 +34,8 @@ class V2IChannel:
     processing_delay_s: float = 0.02
     queue_delay_s: float = 0.0
     loss_probability: float = 0.02
+    bit_error_rate: float = 0.0
+    downlink_accounting: str = "broadcast"  # broadcast or unicast
     rng: random.Random = field(default_factory=random.Random)
 
     pending: List[WarningMessage] = field(default_factory=list)
@@ -42,12 +45,20 @@ class V2IChannel:
     warnings_delivered: int = 0
     bytes_sent: int = 0
     bytes_delivered: int = 0
+    uplink_packets_sent: int = 0
+    downlink_packets_sent: int = 0
+    uplink_bytes_sent: int = 0
+    downlink_bytes_sent: int = 0
 
     @property
     def total_packet_size_bytes(self) -> int:
         if self.packet_size_bytes > 0:
             return int(self.packet_size_bytes)
         return int(self.header_size_bytes + self.payload_size_bytes)
+
+    @property
+    def effective_loss_probability(self) -> float:
+        return packet_error_rate(self.total_packet_size_bytes, self.bit_error_rate, self.loss_probability)
 
     def tx_delay_s(self) -> float:
         return compute_tx_delay_s(self.total_packet_size_bytes, self.data_rate_bps)
@@ -91,7 +102,19 @@ class V2IChannel:
             return
         event_log.add(now_s, "v2i_rsu_selected", origin_id=origin_vehicle.vid, rsu=rsu.rsu_id)
         total_delay = self.uplink_delay_s() + self.processing_delay_s + self.downlink_delay_s()
-        for receiver in vehicles:
+        eligible = [v for v in vehicles if v.vid != origin_vehicle.vid and (not target_followers_only or v.index > origin_vehicle.index) and rsu.distance_to_vehicle(v) <= rsu.range_m]
+        if not eligible:
+            return
+        # One physical uplink from the origin to the RSU. Downlink is either one
+        # broadcast transmission or one unicast per receiver, selected explicitly.
+        self.uplink_packets_sent += 1
+        self.uplink_bytes_sent += self.total_packet_size_bytes
+        downlink_tx = 1 if self.downlink_accounting.lower() == "broadcast" else len(eligible)
+        self.downlink_packets_sent += downlink_tx
+        self.downlink_bytes_sent += downlink_tx * self.total_packet_size_bytes
+        self.warnings_sent += len(eligible)
+        self.bytes_sent += (1 + downlink_tx) * self.total_packet_size_bytes
+        for receiver in eligible:
             if receiver.vid == origin_vehicle.vid:
                 continue
             if target_followers_only and receiver.index <= origin_vehicle.index:
@@ -102,9 +125,7 @@ class V2IChannel:
             if key in self.sent_keys:
                 continue
             self.sent_keys.add(key)
-            self.warnings_sent += 1
-            self.bytes_sent += self.total_packet_size_bytes
-            if self.rng.random() < self.loss_probability:
+            if self.rng.random() < self.effective_loss_probability:
                 self.lost_packets += 1
                 event_log.add(
                     now_s,
@@ -114,6 +135,7 @@ class V2IChannel:
                     receiver=receiver.vid,
                     protocol=self.protocol,
                     packet_size_bytes=self.total_packet_size_bytes,
+                    effective_loss_probability=round(self.effective_loss_probability, 8),
                 )
                 continue
             msg = WarningMessage(

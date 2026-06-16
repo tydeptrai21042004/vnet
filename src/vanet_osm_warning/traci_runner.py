@@ -21,7 +21,7 @@ def _euclidean(a: tuple[float, float], b: tuple[float, float]) -> float:
 def _safe_float(value, default: float = 0.0) -> float:
     try:
         return float(value)
-    except Exception:
+    except (TypeError, ValueError):
         return default
 
 
@@ -38,6 +38,7 @@ class SumoTraciRunner:
 
     def __init__(self, global_cfg: Dict, seed: int = 42, gui: bool = False):
         self.global_cfg = global_cfg
+        self.seed = seed
         self.rng = random.Random(seed)
         self.gui = gui
 
@@ -47,6 +48,7 @@ class SumoTraciRunner:
             communication_range_m=float(channel_cfg.get("communication_range_m", 150.0)),
             delay_s=float(channel_cfg.get("delay_s", channel_cfg.get("base_delay_s", 0.15))),
             loss_probability=float(channel_cfg.get("loss_probability", 0.0)),
+            bit_error_rate=float(channel_cfg.get("bit_error_rate", 0.0)),
             rebroadcast_delay_s=float(channel_cfg.get("rebroadcast_delay_s", 0.05)),
             max_hops=int(channel_cfg.get("max_hops", 1)),
             rng=self.rng,
@@ -66,7 +68,6 @@ class SumoTraciRunner:
         base_delay = float(v2i_cfg.get("base_delay_s", 0.03))
         return V2IChannel(
             rsus=rsus,
-            rsu_range_m=float(v2i_cfg.get("rsu_range_m", v2i_cfg.get("range_m", 500.0))),
             protocol=str(v2i_cfg.get("protocol", "V2I_LTE_5G")),
             packet_size_bytes=packet_size,
             header_size_bytes=int(v2i_cfg.get("header_size_bytes", 64)),
@@ -77,6 +78,8 @@ class SumoTraciRunner:
             processing_delay_s=float(v2i_cfg.get("processing_delay_s", 0.02)),
             queue_delay_s=float(v2i_cfg.get("queue_delay_s", 0.0)),
             loss_probability=float(v2i_cfg.get("loss_probability", 0.0)),
+            bit_error_rate=float(v2i_cfg.get("bit_error_rate", 0.0)),
+            downlink_accounting=str(v2i_cfg.get("downlink_accounting", "broadcast")),
             rng=self.rng,
         )
 
@@ -104,7 +107,7 @@ class SumoTraciRunner:
                     continue
                 x, y = traci.junction.getPosition(jid)
                 rsus.append(RSU(rsu_id=f"RSU_{jid}", x_m=float(x), y_m=float(y), range_m=rsu_range))
-        except Exception:
+        except (traci.TraCIException, RuntimeError, ValueError, TypeError, KeyError, IndexError, AttributeError):
             pass
         return rsus
 
@@ -145,20 +148,20 @@ class SumoTraciRunner:
                         "y": float(y),
                     }
                 )
-            except Exception:
+            except (traci.TraCIException, RuntimeError, ValueError, TypeError, KeyError, IndexError, AttributeError):
                 continue
         return rows
 
     def _lane_length(self, traci, lane_id: str) -> float:
         try:
             return float(traci.lane.getLength(lane_id))
-        except Exception:
+        except (traci.TraCIException, RuntimeError, ValueError, TypeError, KeyError, IndexError, AttributeError):
             return 0.0
 
     def _edge_for_lane(self, traci, lane_id: str) -> str:
         try:
             return str(traci.lane.getEdgeID(lane_id))
-        except Exception:
+        except (traci.TraCIException, RuntimeError, ValueError, TypeError, KeyError, IndexError, AttributeError):
             if "_" in lane_id:
                 return lane_id.rsplit("_", 1)[0]
             return lane_id
@@ -308,7 +311,7 @@ class SumoTraciRunner:
             edge = traci.vehicle.getRoadID(incident_vehicle)
             pos = float(traci.vehicle.getLanePosition(incident_vehicle))
             x0, y0 = traci.vehicle.getPosition(incident_vehicle)
-        except Exception:
+        except (traci.TraCIException, RuntimeError, ValueError, TypeError, KeyError, IndexError, AttributeError):
             return target_receivers
 
         # Primary target definition: vehicles behind the incident vehicle in the same lane.
@@ -318,7 +321,7 @@ class SumoTraciRunner:
             try:
                 if traci.vehicle.getLaneID(vid) == lane and float(traci.vehicle.getLanePosition(vid)) < pos:
                     target_receivers.add(vid)
-            except Exception:
+            except (traci.TraCIException, RuntimeError, ValueError, TypeError, KeyError, IndexError, AttributeError):
                 continue
 
         if target_receivers:
@@ -332,7 +335,7 @@ class SumoTraciRunner:
             try:
                 if traci.vehicle.getRoadID(vid) == edge and float(traci.vehicle.getLanePosition(vid)) < pos:
                     target_receivers.add(vid)
-            except Exception:
+            except (traci.TraCIException, RuntimeError, ValueError, TypeError, KeyError, IndexError, AttributeError):
                 continue
         if target_receivers:
             event_log.add(now, "target_receivers_selected", mode="same_edge_behind", count=len(target_receivers), lane_id=lane, edge_id=edge)
@@ -350,7 +353,7 @@ class SumoTraciRunner:
                 dist = _euclidean((float(x0), float(y0)), (float(x), float(y)))
                 if dist <= target_radius_m:
                     candidates.append((dist, vid))
-            except Exception:
+            except (traci.TraCIException, RuntimeError, ValueError, TypeError, KeyError, IndexError, AttributeError):
                 continue
         candidates.sort()
         for _, vid in candidates[:25]:
@@ -377,7 +380,7 @@ class SumoTraciRunner:
             sender_lane = traci.vehicle.getLaneID(sender_id)
             sender_lane_pos = float(traci.vehicle.getLanePosition(sender_id))
             sender_state = self._vehicle_state(traci, sender_id, index=0)
-        except Exception:
+        except (traci.TraCIException, RuntimeError, ValueError, TypeError, KeyError, IndexError, AttributeError):
             return
         for rid in traci.vehicle.getIDList():
             if rid == sender_id or rid in reached:
@@ -395,7 +398,7 @@ class SumoTraciRunner:
                     continue
                 fake_receiver = self._vehicle_state(traci, rid, index=1)
                 channel.broadcast_to_followers(now_s, sender_state, [fake_receiver], origin_id, created_time_s, hop, event_log)
-            except Exception:
+            except (traci.TraCIException, RuntimeError, ValueError, TypeError, KeyError, IndexError, AttributeError):
                 continue
 
     def _broadcast_sumo_v2i(
@@ -417,7 +420,7 @@ class SumoTraciRunner:
                 if vid in traci.vehicle.getIDList():
                     vehicles.append(self._vehicle_state(traci, vid, index=1))
             v2i.broadcast_warning(now_s, origin, vehicles, created_time_s, event_log, target_followers_only=True)
-        except Exception as exc:
+        except (traci.TraCIException, RuntimeError, ValueError, TypeError, KeyError, IndexError, AttributeError) as exc:
             event_log.add(now_s, "v2i_broadcast_error", error=str(exc))
 
     def _apply_warning_control(
@@ -474,7 +477,7 @@ class SumoTraciRunner:
                 if not lane or lane.startswith(":"):
                     continue
                 by_lane.setdefault(lane, []).append((float(traci.vehicle.getLanePosition(vid)), vid))
-            except Exception:
+            except (traci.TraCIException, RuntimeError, ValueError, TypeError, KeyError, IndexError, AttributeError):
                 continue
         for rows in by_lane.values():
             rows.sort(reverse=True)
@@ -497,7 +500,7 @@ class SumoTraciRunner:
         add_sumo_tools_to_path()
         try:
             import traci  # type: ignore
-        except Exception as exc:  # pragma: no cover
+        except ImportError as exc:  # pragma: no cover
             raise RuntimeError("Cannot import traci. Install SUMO and set SUMO_HOME, or run demo mode.") from exc
 
         out_dir = ensure_dir(out_dir)
@@ -505,7 +508,7 @@ class SumoTraciRunner:
         sumo_binary = find_executable("sumo-gui" if self.gui else "sumo")
         step_length = float(self.global_cfg.get("step_length_s", 0.1))
         duration = float(self.global_cfg.get("duration_s", 90.0))
-        seed = int(self.global_cfg.get("seed", 42))
+        seed = int(self.seed)
         vehicle_length = float(self.global_cfg.get("vehicle_length_m", 4.5))
         channel = self._build_v2v_channel(channel_cfg)
         configured_rsus = self._configured_rsus(rsus_cfg or [], v2i_cfg or {})
@@ -547,6 +550,8 @@ class SumoTraciRunner:
         trajectory_rows: list[dict] = []
         min_gap = float("inf")
         last_wait_log = -1e9
+        first_visual_danger_time: Optional[float] = None
+        visual_gap = float(self.global_cfg.get("visual_detection_gap_m", 6.0))
 
         try:
             steps = int(duration / step_length)
@@ -554,10 +559,13 @@ class SumoTraciRunner:
                 traci.simulationStep()
                 try:
                     now = float(traci.simulation.getTime())
-                except Exception:
+                except (traci.TraCIException, RuntimeError, ValueError, TypeError, KeyError, IndexError, AttributeError):
                     now = round(_step * step_length, 10)
 
                 min_gap = self._update_min_gap(traci, vehicle_length, min_gap)
+                if incident_started and first_visual_danger_time is None and min_gap <= visual_gap:
+                    first_visual_danger_time = now
+                    event_log.add(now, "visual_danger_detected_network", min_gap_m=round(min_gap, 4))
 
                 if incident_enabled and not incident_started and now >= incident_time:
                     incident_vehicle, incident_details, reason = self._select_fixed_incident_vehicle(traci, now, incident_time, incident_cfg)
@@ -646,7 +654,7 @@ class SumoTraciRunner:
                         if pair not in collision_pairs:
                             collision_pairs.add(pair)
                             event_log.add(now, "collision", vehicle_a=a, vehicle_b=b)
-                except Exception:
+                except (traci.TraCIException, RuntimeError, ValueError, TypeError, KeyError, IndexError, AttributeError):
                     pass
 
                 for vid in traci.vehicle.getIDList():
@@ -664,7 +672,7 @@ class SumoTraciRunner:
                             "warning_received": vid in reached,
                             "is_incident_vehicle": vid == incident_vehicle,
                         })
-                    except Exception:
+                    except (traci.TraCIException, RuntimeError, ValueError, TypeError, KeyError, IndexError, AttributeError):
                         continue
         finally:
             traci.close(False)
@@ -686,7 +694,9 @@ class SumoTraciRunner:
         packet_pdr = total_warnings_delivered / total_warnings_sent if total_warnings_sent else (0.0 if warning_enabled else None)
         v2v_load = (channel.bytes_sent * 8.0) / max(duration * channel.data_rate_bps, 1.0)
         v2i_load = (v2i.bytes_sent * 8.0) / max(duration * v2i.data_rate_bps, 1.0)
-        channel_load = v2v_load + v2i_load if total_bytes_sent else (0.0 if warning_enabled else None)
+        normalized_offered_load = v2v_load + v2i_load if total_bytes_sent else (0.0 if warning_enabled else None)
+        duplicate_deliveries = max(0, total_warnings_delivered - len(reached))
+        useful_delivery_ratio = len(reached) / total_warnings_delivered if total_warnings_delivered else None
         protocol = channel.protocol if communication_mode == "v2v" else v2i.protocol if communication_mode == "v2i" else f"{channel.protocol}+{v2i.protocol}" if communication_mode == "hybrid" else "NONE"
         packet_size_bytes = channel.total_packet_size_bytes if communication_mode == "v2v" else v2i.total_packet_size_bytes if communication_mode == "v2i" else max(channel.total_packet_size_bytes, v2i.total_packet_size_bytes) if communication_mode == "hybrid" else None
         data_rate_bps = channel.data_rate_bps if communication_mode == "v2v" else v2i.data_rate_bps if communication_mode == "v2i" else min(channel.data_rate_bps, v2i.data_rate_bps) if communication_mode == "hybrid" else None
@@ -722,10 +732,15 @@ class SumoTraciRunner:
             packet_pdr=packet_pdr,
             receiver_coverage=receiver_coverage,
             pdr=packet_pdr,
-            reaction_gain_s=None,
+            reaction_gain_s=(first_visual_danger_time - first_warning_time) if first_visual_danger_time is not None and first_warning_time is not None else None,
+            warning_lead_time_vs_visual_detection_s=(first_visual_danger_time - first_warning_time) if first_visual_danger_time is not None and first_warning_time is not None else None,
+            duplicate_deliveries=duplicate_deliveries,
+            useful_delivery_ratio=useful_delivery_ratio,
             bytes_sent=total_bytes_sent,
             bytes_delivered=total_bytes_delivered,
-            channel_load=channel_load,
+            channel_load=normalized_offered_load,
+            normalized_offered_load=normalized_offered_load,
+            unique_colliding_pairs=len(collision_pairs),
             data_rate_bps=data_rate_bps,
             v2v_warnings_sent=channel.warnings_sent,
             v2v_warnings_delivered=channel.warnings_delivered,

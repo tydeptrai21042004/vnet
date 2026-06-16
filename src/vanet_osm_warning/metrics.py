@@ -61,7 +61,7 @@ def read_all_event_logs(out_dir: str | Path) -> pd.DataFrame:
     for event_file in sorted(out_dir.glob("events_*.csv")):
         try:
             df = pd.read_csv(event_file)
-        except Exception:
+        except (OSError, ValueError, pd.errors.ParserError):
             continue
         case_id = event_file.name[len("events_") : -len(".csv")]
         if df.empty:
@@ -154,6 +154,18 @@ def build_validation_report(metrics: Iterable[CaseMetrics]) -> pd.DataFrame:
         elif warnings_sent <= 0:
             status = "FAIL_NO_WARNING_SENT"
             detail = "Warning-enabled accident case has targets but sent no warning packets."
+        elif d.get("packet_pdr") is not None and not -1e-9 <= float(d["packet_pdr"]) <= 1.0 + 1e-9:
+            status = "FAIL_INVALID_PDR"
+            detail = "packet_pdr must be in [0, 1]."
+        elif d.get("receiver_coverage") is not None and not -1e-9 <= float(d["receiver_coverage"]) <= 1.0 + 1e-9:
+            status = "FAIL_INVALID_COVERAGE"
+            detail = "receiver_coverage must be in [0, 1]."
+        elif int(d.get("warnings_delivered") or 0) > int(d.get("warnings_sent") or 0):
+            status = "FAIL_DELIVERED_EXCEEDS_SENT"
+            detail = "Logical delivered packets cannot exceed logical packet attempts."
+        elif float(d.get("min_gap_m") or 0.0) < -1e-9:
+            status = "FAIL_NEGATIVE_PHYSICAL_GAP"
+            detail = "Physical clearance cannot be negative; check collision dynamics."
         rows.append(
             {
                 "case_id": d.get("case_id"),
@@ -225,7 +237,7 @@ def _autosize_excel(writer, sheet_name: str, df: pd.DataFrame) -> None:
             ws.column_dimensions[ws.cell(row=1, column=idx).column_letter].width = min(max(max_len + 2, 10), 42)
         for cell in ws[1]:
             cell.style = "Headline 4"
-    except Exception:
+    except (AttributeError, KeyError, TypeError, ValueError):
         # Formatting is optional; data export must never fail because styling failed.
         pass
 

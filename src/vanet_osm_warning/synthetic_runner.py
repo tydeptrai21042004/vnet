@@ -31,7 +31,9 @@ class SyntheticPlatoonRunner:
         n = int(sim_cfg.get("num_vehicles", 10))
         gap = float(sim_cfg.get("gap_m", 18.0))
         v0 = float(sim_cfg.get("initial_speed_mps", 22.0))
-        return [VehicleState(vid=f"veh_{i:02d}", index=i, x_m=-i * gap, y_m=0.0, speed_mps=v0) for i in range(n)]
+        vehicle_length = float(self.global_cfg.get("vehicle_length_m", 4.5))
+        spacing = gap + vehicle_length  # gap_m is bumper-to-bumper clearance
+        return [VehicleState(vid=f"veh_{i:02d}", index=i, x_m=-i * spacing, y_m=0.0, speed_mps=v0) for i in range(n)]
 
     def _build_v2v_channel(self, channel_cfg: Dict) -> V2VChannel:
         packet_size = int(channel_cfg.get("packet_size_bytes", int(channel_cfg.get("header_size_bytes", 48)) + int(channel_cfg.get("payload_size_bytes", 252))))
@@ -39,6 +41,7 @@ class SyntheticPlatoonRunner:
             communication_range_m=float(channel_cfg.get("communication_range_m", 150.0)),
             delay_s=float(channel_cfg.get("delay_s", channel_cfg.get("base_delay_s", 0.15))),
             loss_probability=float(channel_cfg.get("loss_probability", 0.0)),
+            bit_error_rate=float(channel_cfg.get("bit_error_rate", 0.0)),
             rebroadcast_delay_s=float(channel_cfg.get("rebroadcast_delay_s", 0.05)),
             max_hops=int(channel_cfg.get("max_hops", 1)),
             rng=self.rng,
@@ -94,6 +97,8 @@ class SyntheticPlatoonRunner:
             processing_delay_s=float(v2i_cfg.get("processing_delay_s", 0.02)),
             queue_delay_s=float(v2i_cfg.get("queue_delay_s", 0.0)),
             loss_probability=float(v2i_cfg.get("loss_probability", 0.02)),
+            bit_error_rate=float(v2i_cfg.get("bit_error_rate", 0.0)),
+            downlink_accounting=str(v2i_cfg.get("downlink_accounting", "broadcast")),
             rng=self.rng,
         )
 
@@ -212,7 +217,10 @@ class SyntheticPlatoonRunner:
         trajectories: list[dict] = []
         delays: list[float] = []
         collision_pairs = set()
-        target_receivers = max(0, len(vehicles) - 1) if incident_enabled else 0
+        target_radius = float(sim_cfg.get("target_radius_m", self.global_cfg.get("target_receiver_radius_m", 600.0)))
+        incident_vehicle = vehicles[incident_idx]
+        target_ids = {v.vid for v in vehicles if v.index > incident_idx and (incident_vehicle.x_m - v.x_m) <= target_radius}
+        target_receivers = len(target_ids) if incident_enabled else 0
         baseline_visual_first_detection: Optional[float] = None
 
         n_steps = int(duration / dt)
@@ -347,11 +355,18 @@ class SyntheticPlatoonRunner:
                 rear = vehicles[i]
                 gap = front.x_m - rear.x_m - vehicle_length
                 pair = (front.vid, rear.vid)
-                if gap <= collision_gap and pair not in collision_pairs:
-                    collision_pairs.add(pair)
+                if gap <= collision_gap:
+                    if pair not in collision_pairs:
+                        collision_pairs.add(pair)
+                        event_log.add(now, "collision", front=front.vid, rear=rear.vid, gap_m=round(gap, 4))
                     front.collided = True
                     rear.collided = True
-                    event_log.add(now, "collision", front=front.vid, rear=rear.vid, gap_m=round(gap, 4))
+                    # Contact constraint: prevent vehicles from numerically passing
+                    # through one another after impact. The rear vehicle follows the
+                    # front vehicle at zero clearance and cannot be faster.
+                    rear.x_m = min(rear.x_m, front.x_m - vehicle_length)
+                    rear.speed_mps = min(rear.speed_mps, front.speed_mps)
+                    rear.accel_mps2 = min(rear.accel_mps2, front.accel_mps2)
 
             # 7) Record trajectory rows.
             for veh in vehicles:
@@ -372,7 +387,8 @@ class SyntheticPlatoonRunner:
                     }
                 )
 
-        unique_receivers = len({v.vid for v in vehicles if v.warning_received_time is not None})
+        warned_ids = {v.vid for v in vehicles if v.warning_received_time is not None}
+        unique_receivers = len(warned_ids.intersection(target_ids))
         first_warning = min([v.warning_received_time for v in vehicles if v.warning_received_time is not None], default=None)
         avg_delay = sum(delays) / len(delays) if delays else None
         max_delay = max(delays) if delays else None
@@ -398,12 +414,14 @@ class SyntheticPlatoonRunner:
         min_gap = 1e9
         for i in range(1, len(vehicles)):
             gap_series = pivot_x[i - 1] - pivot_x[i] - vehicle_length
-            min_gap = min(min_gap, float(gap_series.min()))
+            min_gap = min(min_gap, max(0.0, float(gap_series.min())))
 
         # Load approximation: used capacity fraction during the entire simulated time.
         v2v_load = (channel.bytes_sent * 8.0) / max(duration * channel.data_rate_bps, 1.0)
         v2i_load = (v2i.bytes_sent * 8.0) / max(duration * v2i.data_rate_bps, 1.0)
-        channel_load = v2v_load + v2i_load if total_bytes_sent else None
+        normalized_offered_load = v2v_load + v2i_load if total_bytes_sent else None
+        duplicate_deliveries = max(0, total_warnings_delivered - unique_receivers)
+        useful_delivery_ratio = unique_receivers / total_warnings_delivered if total_warnings_delivered else None
         protocol = channel.protocol if communication_mode == "v2v" else v2i.protocol if communication_mode == "v2i" else f"{channel.protocol}+{v2i.protocol}" if communication_mode == "hybrid" else "NONE"
         packet_size_bytes = channel.total_packet_size_bytes if communication_mode == "v2v" else v2i.total_packet_size_bytes if communication_mode == "v2i" else max(channel.total_packet_size_bytes, v2i.total_packet_size_bytes) if communication_mode == "hybrid" else None
         data_rate_bps = channel.data_rate_bps if communication_mode == "v2v" else v2i.data_rate_bps if communication_mode == "v2i" else min(channel.data_rate_bps, v2i.data_rate_bps) if communication_mode == "hybrid" else None
@@ -435,9 +453,14 @@ class SyntheticPlatoonRunner:
             receiver_coverage=receiver_coverage,
             pdr=packet_pdr,
             reaction_gain_s=reaction_gain,
+            warning_lead_time_vs_visual_detection_s=reaction_gain,
             bytes_sent=total_bytes_sent,
             bytes_delivered=total_bytes_delivered,
-            channel_load=channel_load,
+            channel_load=normalized_offered_load,
+            normalized_offered_load=normalized_offered_load,
+            duplicate_deliveries=duplicate_deliveries,
+            useful_delivery_ratio=useful_delivery_ratio,
+            unique_colliding_pairs=len(collision_pairs),
             data_rate_bps=data_rate_bps,
             v2v_warnings_sent=channel.warnings_sent,
             v2v_warnings_delivered=channel.warnings_delivered,

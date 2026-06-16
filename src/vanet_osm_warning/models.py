@@ -59,7 +59,8 @@ class CaseMetrics:
     packet_size_bytes: Optional[int] = None
     control_algorithm: str = "none"
 
-    collisions: int = 0
+    collisions: int = 0  # legacy alias for unique_colliding_pairs
+    unique_colliding_pairs: int = 0
     unique_warning_receivers: int = 0
     target_receivers: int = 0
     warnings_sent: int = 0
@@ -76,9 +77,13 @@ class CaseMetrics:
     pdr: Optional[float] = None                     # legacy alias; same as packet_pdr
 
     reaction_gain_s: Optional[float] = None
+    warning_lead_time_vs_visual_detection_s: Optional[float] = None
+    duplicate_deliveries: int = 0
+    useful_delivery_ratio: Optional[float] = None
     bytes_sent: int = 0
     bytes_delivered: int = 0
-    channel_load: Optional[float] = None            # total transmitted bits / available channel bits
+    channel_load: Optional[float] = None            # legacy alias
+    normalized_offered_load: Optional[float] = None # transmitted bits / available channel bits
     data_rate_bps: Optional[float] = None
 
     v2v_warnings_sent: int = 0
@@ -115,6 +120,7 @@ class CaseMetrics:
             "packet_size_bytes": self.packet_size_bytes,
             "control_algorithm": self.control_algorithm,
             "collisions": self.collisions,
+            "unique_colliding_pairs": self.unique_colliding_pairs,
             "target_receivers": self.target_receivers,
             "unique_warning_receivers": self.unique_warning_receivers,
             "receiver_coverage": self.receiver_coverage,
@@ -127,10 +133,14 @@ class CaseMetrics:
             "max_delay_s": self.max_delay_s,
             "first_warning_time_s": self.first_warning_time_s,
             "reaction_gain_s": self.reaction_gain_s,
+            "warning_lead_time_vs_visual_detection_s": self.warning_lead_time_vs_visual_detection_s,
+            "duplicate_deliveries": self.duplicate_deliveries,
+            "useful_delivery_ratio": self.useful_delivery_ratio,
             "min_gap_m": self.min_gap_m,
             "bytes_sent": self.bytes_sent,
             "bytes_delivered": self.bytes_delivered,
             "channel_load": self.channel_load,
+            "normalized_offered_load": self.normalized_offered_load,
             "data_rate_bps": self.data_rate_bps,
             "v2v_warnings_sent": self.v2v_warnings_sent,
             "v2v_warnings_delivered": self.v2v_warnings_delivered,

@@ -6,6 +6,7 @@ from typing import Iterable, List, Set
 
 from .models import VehicleState, WarningMessage, EventLog
 from .protocols import compute_protocol_delay_s, compute_tx_delay_s
+from .reliability import packet_error_rate
 
 
 @dataclass
@@ -14,6 +15,7 @@ class V2VChannel:
     # Legacy fixed delay. If protocol_mode=True, this is replaced by protocol delay.
     delay_s: float = 0.15
     loss_probability: float = 0.0
+    bit_error_rate: float = 0.0
     rebroadcast_delay_s: float = 0.05
     max_hops: int = 1
     rng: random.Random = field(default_factory=random.Random)
@@ -53,6 +55,10 @@ class V2VChannel:
         if self.packet_size_bytes > 0:
             return int(self.packet_size_bytes)
         return int(self.header_size_bytes + self.payload_size_bytes)
+
+    @property
+    def effective_loss_probability(self) -> float:
+        return packet_error_rate(self.total_packet_size_bytes, self.bit_error_rate, self.loss_probability)
 
     def transmission_delay_s(self) -> float:
         return compute_tx_delay_s(self.total_packet_size_bytes, self.data_rate_bps)
@@ -99,7 +105,7 @@ class V2VChannel:
             self.sent_pairs.add(pair)
             self.warnings_sent += 1
             self.bytes_sent += self.total_packet_size_bytes
-            if self.rng.random() < self.loss_probability:
+            if self.rng.random() < self.effective_loss_probability:
                 self.lost_packets += 1
                 event_log.add(
                     now_s,
@@ -110,6 +116,7 @@ class V2VChannel:
                     hop=hop,
                     protocol=self.protocol,
                     packet_size_bytes=self.total_packet_size_bytes,
+                    effective_loss_probability=round(self.effective_loss_probability, 8),
                 )
                 continue
             tx_delay_s = self.transmission_delay_s() if self.protocol_mode else None

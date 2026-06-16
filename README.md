@@ -560,3 +560,25 @@ results/osm_map_td/results.xlsx
 ```
 
 The `incident_locations` sheet shows the accident time, vehicle, edge, lane, lane position, and SUMO x-y coordinates for each case.
+
+## Expanded research scenarios
+
+The upgraded default configuration uses **30 vehicles** and **27 controlled cases**. It includes dedicated density experiments at 12, 30, and 50 vehicles, controller isolation, DSRC/C-V2X packet matrices, V2I broadcast/unicast accounting, and hybrid redundancy cases.
+
+Run the 50-vehicle stress case:
+
+```bash
+python -m vanet_osm_warning.cli demo \
+  --config configs/default_cases.json \
+  --case C24_density_high_50cars \
+  --seeds 42,43,44,45,46 \
+  --out results/stress_50cars
+```
+
+Run all 27 cases with a 50-vehicle default platoon:
+
+```bash
+python -m vanet_osm_warning.cli demo \
+  --config configs/stress_50cars_cases.json \
+  --out results/full_50cars
+```

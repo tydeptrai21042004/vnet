@@ -12,14 +12,12 @@
     "seeds": [
       42,
       43,
-      44,
-      45,
-      46
+      44
     ],
-    "target_receiver_radius_m": 650.0
+    "target_receiver_radius_m": 1100.0
   },
   "synthetic_platoon": {
-    "num_vehicles": 30,
+    "num_vehicles": 50,
     "initial_speed_mps": 22.0,
     "gap_m": 16.0,
     "incident_time_s": 20.0,
@@ -28,7 +26,7 @@
     "normal_decel_mps2": 3.5,
     "warning_decel_mps2": 6.0,
     "min_speed_after_warning_mps": 4.0,
-    "target_radius_m": 650.0
+    "target_radius_m": 1100.0
   },
   "protocols": {
     "DSRC_80211p": {

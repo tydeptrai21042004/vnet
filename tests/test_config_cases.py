@@ -9,7 +9,7 @@ def test_default_config_has_expected_cases_and_incident_policy() -> None:
     cfg = ProjectConfig.load(Path("configs/default_cases.json"))
     case_ids = [case["id"] for case in cfg.cases]
 
-    assert len(case_ids) == 13
+    assert len(case_ids) == 27
     assert case_ids[0] == "C0_normal_no_incident"
     assert case_ids[1] == "C1_accident_no_warning"
     assert len(set(case_ids)) == len(case_ids)

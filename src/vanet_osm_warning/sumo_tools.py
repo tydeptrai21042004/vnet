@@ -68,7 +68,7 @@ def download_osm_by_bbox(south: float, west: float, north: float, east: float, o
     out_file.parent.mkdir(parents=True, exist_ok=True)
     try:
         import osmnx as ox
-    except Exception as exc:  # pragma: no cover - optional dependency
+    except ImportError as exc:  # pragma: no cover - optional dependency
         raise RuntimeError("OSMnx is required for bbox download. Install with: pip install osmnx") from exc
     graph = ox.graph_from_bbox(north, south, east, west, network_type="drive", simplify=False)
     ox.save_graph_xml(graph, filepath=str(out_file))
