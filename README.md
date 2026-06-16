@@ -367,3 +367,110 @@ Replay là trực quan hóa đầu ra của mô hình Python, không phải bằ
 > Trong các giả định và tham số đã cấu hình, thiết lập A lan truyền cảnh báo sớm hơn và tạo phản ứng giảm tốc sớm hơn thiết lập B.
 
 Không nên khẳng định một giao thức luôn vượt trội trong mọi môi trường nếu chưa hiệu chỉnh tham số bằng dữ liệu đo hoặc tài liệu thực nghiệm phù hợp.
+
+---
+
+# 8. Kiểm thử để xác nhận luồng NO-SUMO chạy được
+
+Repository có bộ kiểm thử riêng cho nhánh Python không dùng SUMO. Bộ test này **không gọi SUMO, SUMO GUI hoặc TraCI**, do đó có thể chạy trực tiếp trên WSL sau khi cài Python.
+
+## 8.1. Chạy toàn bộ kiểm thử NO-SUMO bằng một lệnh
+
+```bash
+cd ~/projects/vnet-main
+chmod +x test_no_sumo_full.sh
+./test_no_sumo_full.sh
+```
+
+Script thực hiện ba nhóm kiểm tra:
+
+1. kiểm tra cấu hình có đúng 30 case và không trùng ID;
+2. chạy nhanh đủ 30 case bằng `SyntheticPlatoonRunner`;
+3. chạy một case hoàn chỉnh qua CLI và kiểm tra Excel, CSV, dashboard, replay HTML;
+4. kiểm tra các case đại diện `none`, `v2v`, `v2i`, `hybrid` và DSRC lỗi cao;
+5. kiểm tra channel, metrics, ma trận case và các điều kiện hợp lệ nghiên cứu.
+
+Kết thúc thành công sẽ xuất hiện thông báo:
+
+```text
+OK: Bộ kiểm thử NO-SUMO đã hoàn thành.
+```
+
+## 8.2. Chạy riêng test mới cho 30 case
+
+```bash
+source .venv/bin/activate
+pytest -q tests/test_no_sumo_30_cases.py
+```
+
+Các kiểm tra chính trong tệp này:
+
+| Test | Nội dung xác nhận |
+|---|---|
+| Catalog 30 case | Có đúng 30 ID duy nhất từ `C0` đến `C29` |
+| Load case đại diện | Các cấu hình none/V2V/V2I/hybrid được merge hợp lệ |
+| Single-case CLI | Lệnh `python main.py no-sumo` chạy thành công |
+| Output đầy đủ | Có `results.xlsx`, metrics CSV, event CSV, trajectory CSV |
+| Replay | Có `index.html`, replay riêng và `case_catalog.json` |
+| Thực thi 30 case | Tất cả case đều chạy qua mô hình Python và sinh CSV |
+
+## 8.3. Chạy toàn bộ pytest của repository
+
+```bash
+source .venv/bin/activate
+pytest -q
+```
+
+Lệnh này chạy cả các test liên quan đến phần SUMO và tích hợp cũ. Một số test tích hợp có thể lâu hơn bộ NO-SUMO nhanh. Khi chỉ cần xác nhận phần mới không dùng SUMO, ưu tiên:
+
+```bash
+./test_no_sumo_full.sh
+```
+
+## 8.4. Kiểm tra thủ công sau khi chạy 30 case
+
+Chạy mô phỏng:
+
+```bash
+./run_no_sumo_30_cases.sh
+```
+
+Kiểm tra các tệp bắt buộc:
+
+```bash
+test -s results/no_sumo_30_cases/results.xlsx
+test -s results/no_sumo_30_cases/summary_metrics.csv
+test -s results/no_sumo_30_cases/behavior_visualization/index.html
+```
+
+Kiểm tra số replay phải bằng 30:
+
+```bash
+find results/no_sumo_30_cases/behavior_visualization \
+  -maxdepth 1 -name 'replay_*.html' | wc -l
+```
+
+Kết quả mong đợi:
+
+```text
+30
+```
+
+Kiểm tra số event và trajectory CSV:
+
+```bash
+find results/no_sumo_30_cases -maxdepth 1 -name 'events_*.csv' | wc -l
+find results/no_sumo_30_cases -maxdepth 1 -name 'trajectories_*.csv' | wc -l
+```
+
+Mỗi lệnh phải trả về:
+
+```text
+30
+```
+
+Mở dashboard trên Windows từ WSL:
+
+```bash
+explorer.exe "$(wslpath -w results/no_sumo_30_cases/behavior_visualization/index.html)"
+```
