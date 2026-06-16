@@ -1,584 +1,369 @@
-# VANET V2V/V2I Road Accident Warning Simulation with SUMO
+# Mô phỏng cảnh báo VANET: SUMO giữ nguyên và mô phỏng Python không cần SUMO
 
-This project implements a modular simulation framework for the research topic:
+Repository này cung cấp **hai luồng chạy độc lập**:
 
-> **Cảnh báo tai nạn giao thông đường bộ sử dụng mạng VANET: mô phỏng V2V, V2I và Hybrid V2V--V2I bằng SUMO/TraCI, đồng thời đánh giá ảnh hưởng của giao thức truyền thông và kích thước gói tin.**
+1. **Luồng SUMO hiện có**: giữ nguyên toàn bộ cách chạy cũ, bao gồm tiền xử lý bản đồ OSM, chạy SUMO không giao diện và chạy SUMO GUI.
+2. **Luồng NO-SUMO mới**: mô phỏng đoàn xe hoàn toàn bằng Python, không gọi SUMO/TraCI, đồng thời tạo Excel, biểu đồ và mô phỏng hành vi tương tác cho từng case.
 
-The code supports two execution modes:
-
-1. **Pure Python demo mode**: quick platoon simulation without SUMO. Use this first to verify the communication logic, metrics, packet-size effect, and plots.
-2. **SUMO/TraCI mode**: runs the same warning/control cases on a SUMO road network converted from OpenStreetMap.
-
-The implementation now covers the requested research content:
-
-| Research requirement | Implemented? | Where |
-|---|---:|---|
-| V2V communication mechanism | Yes | `src/vanet_osm_warning/channel.py` |
-| SUMO simulation of V2V control algorithms | Yes | `src/vanet_osm_warning/traci_runner.py` |
-| Impact of communication protocol and packet size | Yes | `protocol`, `packet_size_bytes`, `data_rate_bps`, `channel_load`, `bytes_sent`, `packet_pdr` |
-| Vehicle-to-Infrastructure V2I comparison | Yes | `src/vanet_osm_warning/v2i_channel.py` |
-| Hybrid V2V + V2I comparison | Yes | `communication_mode = hybrid` in config |
+> Các tệp cấu hình và lệnh SUMO cũ vẫn giữ nguyên. Phần bổ sung chỉ nằm ở lệnh `no-sumo`, cấu hình `configs/no_sumo_30_cases.json`, mô-đun trực quan hóa và script `run_no_sumo_30_cases.sh`.
 
 ---
 
-## 1. Main features
-
-### 1.1 Communication modes
-
-The simulator supports four communication modes:
-
-| Mode | Meaning |
-|---|---|
-| `none` | Accident occurs, but no warning is transmitted. |
-| `v2v` | Vehicle-to-Vehicle warning. Supports direct and multi-hop broadcast. |
-| `v2i` | Vehicle sends warning to Roadside Unit, then RSU broadcasts warning to vehicles. |
-| `hybrid` | V2V and V2I are both active. |
-
-### 1.2 Protocol and packet-size model
-
-Each warning packet has communication parameters:
-
-```json
-{
-  "protocol": "DSRC_80211p",
-  "data_rate_bps": 6000000,
-  "base_delay_s": 0.02,
-  "processing_delay_s": 0.005,
-  "queue_delay_s": 0.0,
-  "header_size_bytes": 48,
-  "payload_size_bytes": 252,
-  "packet_size_bytes": 300,
-  "loss_probability": 0.02
-}
-```
-
-Transmission delay is computed as:
-
-```text
-T_tx = 8 * packet_size_bytes / data_rate_bps
-```
-
-Total one-hop V2V delay is approximately:
-
-```text
-T_v2v = base_delay + T_tx + processing_delay + queue_delay
-```
-
-Total V2I delay is approximately:
-
-```text
-T_v2i = uplink_delay + RSU_processing_delay + downlink_delay
-```
-
-So larger packets increase:
-
-- transmission delay,
-- bytes sent,
-- channel load,
-- communication overhead.
-
-### 1.3 Control algorithms after warning reception
-
-When a vehicle receives a warning, the simulator can apply different control policies:
-
-| Control algorithm | Meaning |
-|---|---|
-| `preemptive_brake` | Vehicle brakes early with a fixed warning deceleration. |
-| `ttc_adaptive` | Vehicle uses a TTC/gap-aware braking rule. This is closer to a simple V2V control algorithm. |
-| `emergency_brake` | Vehicle applies strong braking after receiving warning. |
-
-In SUMO mode, these policies are applied through `traci.vehicle.slowDown(...)`.
-
----
-
-## 2. Project structure
+## 1. Cấu trúc quan trọng
 
 ```text
 vnet-main/
-├── README.md
-├── requirements.txt
-├── main.py
-├── run_vanet_osm_ubuntu.sh
-├── run_case_gui.sh
 ├── configs/
-│   ├── default_cases.json
-│   └── v2v_v2i_packet_cases.json
-├── data/
-│   ├── osm/
-│   └── sumo/
-├── docs/
-│   ├── DESIGN.md
-│   └── REPORT_TEMPLATE.md
-├── scripts/
-│   └── export_osm_example.md
-└── src/vanet_osm_warning/
-    ├── cli.py
-    ├── config.py
-    ├── models.py
-    ├── protocols.py
-    ├── channel.py
-    ├── v2i_channel.py
-    ├── collision_warning.py
-    ├── synthetic_runner.py
-    ├── traci_runner.py
-    ├── sumo_tools.py
-    ├── metrics.py
-    ├── plots.py
-    └── report.py
+│   ├── default_cases.json           # Cấu hình SUMO cũ, không thay đổi
+│   ├── v2v_v2i_packet_cases.json    # Cấu hình SUMO cũ, không thay đổi
+│   ├── stress_50cars_cases.json     # Cấu hình SUMO cũ, không thay đổi
+│   └── no_sumo_30_cases.json        # 30 case dành riêng cho mô phỏng Python
+├── src/vanet_osm_warning/
+│   ├── synthetic_runner.py          # Mô hình đoàn xe Python
+│   ├── traci_runner.py              # Luồng SUMO/TraCI cũ
+│   └── behavior_viz.py              # Replay hành vi và biểu đồ NO-SUMO
+├── run_no_sumo_30_cases.sh          # Chạy trọn bộ 30 case không cần SUMO
+├── run_vanet_osm_ubuntu.sh          # Script SUMO cũ
+├── run_case_gui.sh                  # Script SUMO GUI cũ
+└── main.py
 ```
-
-### Important files added or upgraded
-
-| File | Purpose |
-|---|---|
-| `protocols.py` | Computes protocol/packet-size delay. |
-| `v2i_channel.py` | Implements RSU and V2I warning dissemination. |
-| `channel.py` | Upgraded V2V channel with packet size, protocol, bytes sent, PDR, and channel load support. |
-| `synthetic_runner.py` | Now supports `none`, `v2v`, `v2i`, and `hybrid`. |
-| `traci_runner.py` | SUMO/TraCI support for V2V, V2I, hybrid, and control algorithms. |
-| `configs/default_cases.json` | Full V2V/V2I/packet-size experiment matrix. |
 
 ---
 
-## 3. Installation
+# 2. Chạy trên Windows bằng WSL
 
-### 3.1 Create environment
+## 2.1. Cài WSL và Ubuntu
 
-```bash
-cd vnet-main
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
-export PYTHONPATH=$PWD/src:$PYTHONPATH
+Mở **PowerShell bằng quyền Administrator** và chạy:
+
+```powershell
+wsl --install -d Ubuntu
 ```
 
-### 3.2 Install SUMO on Ubuntu
+Khởi động lại Windows nếu được yêu cầu. Sau đó mở ứng dụng **Ubuntu** và tạo tài khoản Linux.
+
+Kiểm tra WSL:
+
+```powershell
+wsl --status
+```
+
+Khuyến nghị sử dụng WSL 2:
+
+```powershell
+wsl --set-default-version 2
+```
+
+---
+
+## 2.2. Cài công cụ Python trong Ubuntu/WSL
+
+Trong cửa sổ Ubuntu:
 
 ```bash
 sudo apt update
-sudo apt install -y sumo sumo-tools sumo-doc
-export SUMO_HOME=/usr/share/sumo
+sudo apt install -y python3 python3-venv python3-pip unzip git
 ```
 
-Add to `~/.bashrc`:
+Luồng NO-SUMO **không cần cài SUMO**.
+
+---
+
+## 2.3. Giải nén repository trong WSL
+
+Ví dụ tệp ZIP nằm trong thư mục Downloads của Windows:
 
 ```bash
-export SUMO_HOME=/usr/share/sumo
+cd ~
+mkdir -p projects
+cd projects
+unzip /mnt/c/Users/<TEN_WINDOWS>/Downloads/vnet-main.zip
+cd vnet-main
+```
+
+Thay `<TEN_WINDOWS>` bằng tên tài khoản Windows thực tế.
+
+Có thể kiểm tra đường dẫn Windows bằng:
+
+```bash
+ls /mnt/c/Users
+```
+
+> Nên chạy dự án trong thư mục Linux như `~/projects/vnet-main`, không nên chạy trực tiếp trong `/mnt/c/...` vì thao tác nhiều tệp thường chậm hơn.
+
+---
+
+# 3. Chạy 30 case hoàn toàn bằng Python, không dùng SUMO
+
+## Cách đơn giản nhất
+
+```bash
+cd ~/projects/vnet-main
+chmod +x run_no_sumo_30_cases.sh
+./run_no_sumo_30_cases.sh
+```
+
+Script sẽ tự động:
+
+1. tạo môi trường `.venv`;
+2. cài dependencies;
+3. chạy đủ 30 case trong `configs/no_sumo_30_cases.json`;
+4. xuất CSV và Excel;
+5. tạo biểu đồ tĩnh;
+6. tạo replay HTML tương tác cho từng case;
+7. tạo trang tổng hợp toàn bộ case.
+
+Kết quả chính:
+
+```text
+results/no_sumo_30_cases/
+├── results.xlsx
+├── summary_metrics.csv
+├── summary_report.md
+├── events_<case_id>.csv
+├── trajectories_<case_id>.csv
+├── plots/
+└── behavior_visualization/
+    ├── index.html
+    ├── replay_C0_normal_no_incident.html
+    ├── ...
+    └── replay_C29_dsrc_congested_latency.html
 ```
 
 ---
 
-## 4. Quick run without SUMO
-
-Run the full demo experiment:
+## 3.1. Mở dashboard từ WSL
 
 ```bash
-chmod +x run_vanet_osm_ubuntu.sh
-./run_vanet_osm_ubuntu.sh demo
+explorer.exe "$(wslpath -w results/no_sumo_30_cases/behavior_visualization/index.html)"
 ```
 
-Or manually:
+Mở Excel:
 
 ```bash
-export PYTHONPATH=$PWD/src:$PYTHONPATH
-python -m vanet_osm_warning.cli demo \
-  --config configs/default_cases.json \
-  --out results/demo
+explorer.exe "$(wslpath -w results/no_sumo_30_cases/results.xlsx)"
 ```
 
-Outputs:
+Mở thư mục kết quả:
 
-```text
-results/demo/summary_metrics.csv
-results/demo/summary_report.md
-results/demo/events_<case_id>.csv
-results/demo/trajectories_<case_id>.csv
-results/demo/plots/*.png
+```bash
+explorer.exe "$(wslpath -w results/no_sumo_30_cases)"
 ```
 
 ---
 
-## 5. Run a single case
-
-Example: run only the hybrid V2V+V2I case.
+## 3.2. Chạy thủ công
 
 ```bash
-python -m vanet_osm_warning.cli demo \
-  --config configs/default_cases.json \
-  --out results/hybrid_only \
-  --case C5_hybrid_v2v_v2i_300B
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e .
+
+python main.py no-sumo \
+  --config configs/no_sumo_30_cases.json \
+  --out results/no_sumo_30_cases \
+  --seeds 42
 ```
 
-Example: run only the V2I packet-size stress case.
+Một seed chung giúp các case có điều kiện ngẫu nhiên so sánh được với nhau.
+
+---
+
+## 3.3. Chạy một case cụ thể
+
+Ví dụ kiểm tra kênh DSRC có BER/loss cao:
 
 ```bash
-python -m vanet_osm_warning.cli demo \
-  --config configs/default_cases.json \
-  --out results/v2i_1400B \
-  --case C11_v2i_packet_1400B
+source .venv/bin/activate
+python main.py no-sumo \
+  --config configs/no_sumo_30_cases.json \
+  --case C28_dsrc_high_error_channel \
+  --out results/no_sumo_C28 \
+  --seeds 42
+```
+
+Mở replay:
+
+```bash
+explorer.exe "$(wslpath -w results/no_sumo_C28/behavior_visualization/index.html)"
 ```
 
 ---
 
-## 6. SUMO / OpenStreetMap mode
+## 3.4. Chạy nhiều seed để lấy thống kê
 
-### 6.1 Use an exported OSM file
+```bash
+source .venv/bin/activate
+python main.py no-sumo \
+  --config configs/no_sumo_30_cases.json \
+  --out results/no_sumo_30_cases_multiseed \
+  --seeds 42,43,44
+```
 
-Put your OSM map here:
+Kết quả thống kê được lưu trong:
 
 ```text
-data/osm/my_area.osm.xml
+results/no_sumo_30_cases_multiseed/multi_seed_statistics.csv
+results/no_sumo_30_cases_multiseed/results.xlsx
 ```
 
-Then run:
-
-```bash
-./run_vanet_osm_ubuntu.sh osm-file data/osm/my_area.osm.xml
-```
-
-This performs:
-
-1. OSM to SUMO network conversion.
-2. Route generation.
-3. SUMO configuration generation.
-4. SUMO/TraCI simulation for all cases.
-5. CSV, Markdown, and plot generation.
-
-### 6.2 Manual SUMO commands
-
-Preprocess OSM:
-
-```bash
-python -m vanet_osm_warning.cli preprocess-osm \
-  --osm-file data/osm/my_area.osm.xml \
-  --map-name my_area \
-  --out data/sumo \
-  --end 600 \
-  --period 1.0
-```
-
-Run SUMO simulation:
-
-```bash
-python -m vanet_osm_warning.cli simulate-sumo \
-  --config configs/default_cases.json \
-  --sumocfg data/sumo/my_area.sumocfg \
-  --out results/osm
-```
-
-Run SUMO GUI:
-
-```bash
-python -m vanet_osm_warning.cli simulate-sumo \
-  --config configs/default_cases.json \
-  --sumocfg data/sumo/my_area.sumocfg \
-  --out results/osm_gui \
-  --gui
-```
-
-Or use the interactive GUI runner:
-
-```bash
-chmod +x run_case_gui.sh
-./run_case_gui.sh
-```
+Replay sử dụng replication của seed đầu tiên; số liệu tổng hợp sử dụng toàn bộ seed.
 
 ---
 
-## 7. Experiment cases
+# 4. Replay hành vi thể hiện gì?
 
-The default config contains these cases:
+Mỗi case có một tệp HTML riêng, cho phép quan sát trực tiếp:
 
-| Case ID | Mode | Purpose |
-|---|---|---|
-| `C0_normal_no_incident` | none | Normal traffic sanity check. |
-| `C1_accident_no_warning` | none | Accident baseline without warning. |
-| `C2_v2v_direct_dsrc_300B` | V2V | Direct one-hop V2V warning. |
-| `C3_v2v_multihop_dsrc_300B` | V2V | Multi-hop V2V warning. |
-| `C4_v2i_lte_5g_300B` | V2I | RSU-based V2I warning. |
-| `C5_hybrid_v2v_v2i_300B` | Hybrid | Combined V2V and V2I warning. |
-| `C6_v2v_multihop_packet_100B` | V2V | Packet-size test: 100 bytes. |
-| `C7_v2v_multihop_packet_600B` | V2V | Packet-size test: 600 bytes. |
-| `C8_v2v_multihop_packet_1400B` | V2V | Packet-size test: 1400 bytes. |
-| `C9_v2i_packet_100B` | V2I | V2I packet-size test: 100 bytes. |
-| `C10_v2i_packet_600B` | V2I | V2I packet-size test: 600 bytes. |
-| `C11_v2i_packet_1400B` | V2I | V2I packet-size test: 1400 bytes. |
-| `C12_v2v_cv2x_packet_600B` | V2V | Protocol comparison: C-V2X-like V2V. |
+- vị trí và chuyển động của từng xe;
+- xe gây sự cố;
+- thời điểm sự cố bắt đầu;
+- xe nhận cảnh báo đầu tiên;
+- thứ tự các xe nhận cảnh báo;
+- truyền trực tiếp V2V;
+- chuyển tiếp V2V nhiều hop;
+- truyền V2I/hybrid;
+- packet thành công và packet loss;
+- khoảng trống cảnh báo do mất gói;
+- thời điểm xe bắt đầu giảm tốc;
+- cảnh báo đến trước hay sau thời điểm nguy hiểm có thể nhìn thấy;
+- tốc độ trung bình của đoàn xe;
+- số xe đã nhận cảnh báo;
+- số packet đã gửi;
+- dòng thời gian sự kiện.
 
----
-
-## 8. How to compare V2V and V2I
-
-Use the same accident scenario and compare these cases:
-
-```text
-C1_accident_no_warning
-C2_v2v_direct_dsrc_300B
-C3_v2v_multihop_dsrc_300B
-C4_v2i_lte_5g_300B
-C5_hybrid_v2v_v2i_300B
-```
-
-Recommended comparison table:
-
-| Metric | Meaning | Better value |
-|---|---|---|
-| `collisions` | Number of collision events | lower |
-| `receiver_coverage` | Warned target vehicles / target vehicles | higher |
-| `packet_pdr` | Delivered packets / sent packets | higher |
-| `avg_delay_s` | Average warning delay | lower |
-| `max_delay_s` | Worst warning delay | lower |
-| `bytes_sent` | Communication overhead | lower |
-| `channel_load` | Estimated used channel capacity | lower |
-| `min_gap_m` | Minimum bumper-to-bumper gap | higher |
-
-Important distinction:
-
-```text
-packet_pdr = warnings_delivered / warnings_sent
-receiver_coverage = unique_warning_receivers / target_receivers
-```
-
-These are not the same. A system can have many dropped packets but still warn every vehicle if there are redundant transmissions.
+Replay có nút play/pause, thanh thời gian và tốc độ phát `0.5×`, `1×`, `2×`, `4×`.
 
 ---
 
-## 9. How to evaluate packet-size impact
+# 5. So sánh bên trong cùng giao thức DSRC
 
-Use these cases:
-
-```text
-C6_v2v_multihop_packet_100B
-C7_v2v_multihop_packet_600B
-C8_v2v_multihop_packet_1400B
-C9_v2i_packet_100B
-C10_v2i_packet_600B
-C11_v2i_packet_1400B
-```
-
-After running the demo, check:
-
-```text
-results/demo/summary_metrics.csv
-results/demo/plots/packet_size_vs_delay.png
-results/demo/plots/packet_size_vs_packet_pdr.png
-results/demo/plots/summary_bytes_sent_by_case.png
-results/demo/plots/summary_channel_load_by_case.png
-```
-
-In the report, explain:
-
-- Larger packet size increases `bytes_sent`.
-- Larger packet size increases `channel_load`.
-- Larger packet size increases theoretical transmission delay.
-- Under packet loss, larger overhead can reduce communication efficiency.
-- Safety impact should be discussed through `collisions`, `receiver_coverage`, and `avg_delay_s`.
-
----
-
-## 10. How to edit protocol parameters
-
-Open:
-
-```text
-configs/default_cases.json
-```
-
-Edit the `protocols` block:
+30 case không chỉ so sánh V2V với V2I. Các case còn kiểm tra nhiều cấu hình cùng dùng:
 
 ```json
-"DSRC_80211p": {
-  "data_rate_bps": 6000000,
-  "base_delay_s": 0.02,
-  "processing_delay_s": 0.005,
-  "packet_size_bytes": 300,
-  "communication_range_m": 70.0,
-  "loss_probability": 0.02
-}
+"protocol": "DSRC_80211p"
 ```
 
-To make packet size have a stronger delay effect in the experiment, you can test lower data rate or add queueing delay:
+Các nhóm đáng chú ý:
 
-```json
-"channel": {
-  "packet_size_bytes": 1400,
-  "data_rate_bps": 1000000,
-  "queue_delay_s": 0.02
-}
-```
-
----
-
-## 11. How to configure V2I RSUs
-
-### 11.1 Pure Python demo mode
-
-If no RSU is manually provided, the demo automatically places RSUs near the platoon and incident point.
-
-To manually set RSUs, add this to a case:
-
-```json
-"rsus": [
-  {
-    "id": "RSU_1",
-    "x_m": 300.0,
-    "y_m": 0.0,
-    "range_m": 500.0
-  }
-]
-```
-
-### 11.2 SUMO mode
-
-By default, SUMO mode can automatically create RSUs at junction positions:
-
-```json
-"v2i_default": {
-  "auto_rsus_from_junctions": true,
-  "max_auto_rsus": 20,
-  "rsu_range_m": 500.0
-}
-```
-
-If you want fixed RSUs in SUMO, use map coordinates:
-
-```json
-"rsus": [
-  {
-    "id": "RSU_A",
-    "x_m": 1234.5,
-    "y_m": 678.9,
-    "range_m": 500.0
-  }
-]
-```
-
-You can inspect SUMO coordinates in SUMO-GUI by clicking junctions/vehicles.
-
----
-
-## 12. Output files
-
-After running:
-
-```bash
-python -m vanet_osm_warning.cli demo --config configs/default_cases.json --out results/demo
-```
-
-You get:
-
-| Output | Meaning |
+| Mục tiêu | Case |
 |---|---|
-| `summary_metrics.csv` | Main result table. |
-| `summary_report.md` | Auto-generated Markdown report. |
-| `events_<case_id>.csv` | Event log: incident, packet sent/lost, warning received, collision. |
-| `trajectories_<case_id>.csv` | Vehicle trajectory and speed over time. |
-| `plots/summary_collisions_by_case.png` | Collision comparison. |
-| `plots/summary_packet_pdr_by_case.png` | Packet-level delivery ratio. |
-| `plots/summary_receiver_coverage_by_case.png` | Vehicle warning coverage. |
-| `plots/summary_delay_by_case.png` | Average warning delay. |
-| `plots/summary_bytes_sent_by_case.png` | Communication overhead. |
-| `plots/summary_channel_load_by_case.png` | Estimated channel load. |
-| `plots/packet_size_vs_delay.png` | Packet-size impact on delay. |
-| `plots/packet_size_vs_packet_pdr.png` | Packet-size impact on packet PDR. |
+| Direct và multi-hop | `C2`, `C3` |
+| Packet 100/300/600/1400 B | `C6`, `C3`, `C7`, `C8` |
+| Bộ điều khiển phanh | `C2`, `C13`, `C15`, `C3`, `C14`, `C16` |
+| Mật độ 12/30/50 xe | `C22`, `C23`, `C24` |
+| Giảm vùng phủ xuống 40 m | `C27` so với `C3` |
+| BER/loss cao | `C28` so với `C3` |
+| Queue và rebroadcast delay cao | `C29` so với `C3` |
+
+Nhờ đó có thể quan sát tác động của từng tham số đến tốc độ lan truyền cảnh báo và phản ứng phanh, dù tên giao thức vẫn là DSRC 802.11p.
 
 ---
 
-## 13. Recommended thesis/report section
-
-You can write the research content like this:
-
-```text
-The study evaluates road accident warning in VANET using SUMO/TraCI simulation.
-The proposed simulator compares three communication architectures: V2V, V2I,
-and hybrid V2V--V2I. In the V2V model, the accident vehicle broadcasts an
-emergency braking message to nearby vehicles, and multi-hop rebroadcast is used
-to extend warning coverage. In the V2I model, the accident vehicle sends the
-warning to a roadside unit, and the RSU broadcasts it to vehicles in its
-coverage region. The hybrid model activates both mechanisms.
-
-The impact of communication protocol and packet size is evaluated by modeling
-packet size, data rate, base delay, processing delay, loss probability, bytes
-sent, packet-level delivery ratio, and estimated channel load. Safety is
-measured using collision count, warning coverage, warning delay, reaction gain,
-and minimum vehicle gap.
-```
-
----
-
-## 14. Suggested conclusion interpretation
-
-A typical conclusion should be:
-
-```text
-The no-warning baseline produces the highest collision risk because following
-vehicles react only after local visual detection. Direct V2V warning reduces
-risk for nearby vehicles but is limited by communication range. Multi-hop V2V
-improves warning coverage in long platoons, although it increases the number of
-transmitted packets. V2I provides infrastructure-assisted coverage through RSUs,
-but its performance depends on RSU placement and communication delay. The hybrid
-V2V--V2I approach provides the most robust warning coverage because it combines
-low-latency local dissemination with infrastructure-assisted broadcasting.
-Packet-size experiments show that larger warning messages increase communication
-overhead and channel load, which should be considered when designing VANET
-safety messages.
-```
-
----
-
-## 15. Notes and limitations
-
-- The protocol models are abstract engineering models, not full PHY/MAC simulators.
-- For a more realistic network study, integrate ns-3, Veins, OMNeT++, or Plexe.
-- The current implementation is suitable for a university project/thesis simulation where SUMO is used for traffic behavior and a Python model is used for V2X communication delay/loss.
-- The pure Python demo is deterministic and easy to test; SUMO mode depends on the selected map, vehicle flow, and SUMO route generation.
-
----
-
-## Patch note: fixed accident location and Excel export
-
-This version includes a practical correction for project defense/testing:
-
-- SUMO accident-enabled cases now keep trying until `incident_started` is actually created.
-- SUMO incident location is fixed/configurable through `sumo_fixed_incident` in `configs/default_cases.json`.
-- If the exact fixed location has no vehicle, the code waits and then uses a controlled fallback so accident cases do not become empty.
-- Every run exports `results.xlsx`, `incident_locations.csv`, and `validation_report.csv`.
-- `run_case_gui.sh all` now produces one combined GUI result workbook in `results/gui_all/results.xlsx` instead of separate one-row summaries only.
-
-For the new uploaded map, use:
+# 6. Tạo lại replay từ CSV mà không chạy lại mô phỏng
 
 ```bash
-./run_vanet_osm_ubuntu.sh osm-file data/osm/map_td.osm all results/osm_map_td
-python scripts/validate_results.py results/osm_map_td
+source .venv/bin/activate
+python main.py visualize-no-sumo \
+  --results results/no_sumo_30_cases \
+  --config configs/no_sumo_30_cases.json \
+  --frame-step 0.25
 ```
 
-Open:
-
-```text
-results/osm_map_td/results.xlsx
-```
-
-The `incident_locations` sheet shows the accident time, vehicle, edge, lane, lane position, and SUMO x-y coordinates for each case.
-
-## Expanded research scenarios
-
-The upgraded default configuration uses **30 vehicles** and **27 controlled cases**. It includes dedicated density experiments at 12, 30, and 50 vehicles, controller isolation, DSRC/C-V2X packet matrices, V2I broadcast/unicast accounting, and hybrid redundancy cases.
-
-Run the 50-vehicle stress case:
+Giảm kích thước HTML bằng:
 
 ```bash
-python -m vanet_osm_warning.cli demo \
-  --config configs/default_cases.json \
-  --case C24_density_high_50cars \
-  --seeds 42,43,44,45,46 \
-  --out results/stress_50cars
+python main.py visualize-no-sumo \
+  --results results/no_sumo_30_cases \
+  --config configs/no_sumo_30_cases.json \
+  --frame-step 0.5
 ```
 
-Run all 27 cases with a 50-vehicle default platoon:
+---
+
+# 7. Luồng SUMO cũ vẫn giữ nguyên
+
+Các lệnh dưới đây vẫn dùng logic SUMO/TraCI hiện có.
+
+## 7.1. Cài SUMO trong WSL
 
 ```bash
-python -m vanet_osm_warning.cli demo \
-  --config configs/stress_50cars_cases.json \
-  --out results/full_50cars
+sudo apt update
+sudo apt install -y sumo sumo-tools
+export SUMO_HOME=/usr/share/sumo
+export PYTHONPATH="$SUMO_HOME/tools:$PYTHONPATH"
 ```
+
+Có thể thêm vào `~/.bashrc`:
+
+```bash
+echo 'export SUMO_HOME=/usr/share/sumo' >> ~/.bashrc
+echo 'export PYTHONPATH="$SUMO_HOME/tools:$PYTHONPATH"' >> ~/.bashrc
+source ~/.bashrc
+```
+
+## 7.2. Chạy SUMO không GUI theo cách cũ
+
+```bash
+./run_vanet_osm_ubuntu.sh sumo \
+  all \
+  data/sumo/osm_map.sumocfg \
+  results/sumo_no_gui
+```
+
+## 7.3. Chạy SUMO GUI theo cách cũ
+
+WSLg trên Windows 11 thường hiển thị GUI trực tiếp:
+
+```bash
+./run_case_gui.sh all data/sumo/osm_map.sumocfg
+```
+
+Hoặc chạy một case:
+
+```bash
+./run_case_gui.sh C12_v2v_cv2x_packet_600B data/sumo/osm_map.sumocfg
+```
+
+## 7.4. Tiền xử lý bản đồ OSM theo cách cũ
+
+```bash
+./run_vanet_osm_ubuntu.sh preprocess-osm \
+  data/osm/map_td.osm \
+  osm_map
+```
+
+> Luồng SUMO tiếp tục sử dụng các cấu hình cũ. Tệp `configs/no_sumo_30_cases.json` chỉ dành cho lệnh `no-sumo`.
+
+---
+
+# 8. Kiểm thử
+
+```bash
+source .venv/bin/activate
+pytest -q
+```
+
+Kiểm tra nhanh riêng luồng NO-SUMO:
+
+```bash
+python main.py no-sumo \
+  --config configs/no_sumo_30_cases.json \
+  --case C3_v2v_multihop_dsrc_300B \
+  --out results/smoke_no_sumo \
+  --seeds 42
+
+test -f results/smoke_no_sumo/results.xlsx
+test -f results/smoke_no_sumo/behavior_visualization/index.html
+```
+
+---
+
+# 9. Lưu ý diễn giải kết quả
+
+Replay là trực quan hóa đầu ra của mô hình Python, không phải bằng chứng thực nghiệm độc lập cho chuẩn DSRC, C-V2X hoặc LTE/5G ngoài thực tế. Kết luận nên được viết theo dạng:
+
+> Trong các giả định và tham số đã cấu hình, thiết lập A lan truyền cảnh báo sớm hơn và tạo phản ứng giảm tốc sớm hơn thiết lập B.
+
+Không nên khẳng định một giao thức luôn vượt trội trong mọi môi trường nếu chưa hiệu chỉnh tham số bằng dữ liệu đo hoặc tài liệu thực nghiệm phù hợp.

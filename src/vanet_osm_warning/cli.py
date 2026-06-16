@@ -8,6 +8,7 @@ from .config import ProjectConfig
 from .aggregation import aggregate_replications
 from .metrics import ensure_dir, write_result_exports
 from .plots import plot_all_trajectories
+from .behavior_viz import generate_behavior_visualizations
 from .report import write_markdown_report
 from .sumo_tools import download_osm_by_bbox, preprocess_osm
 from .synthetic_runner import SyntheticPlatoonRunner
@@ -43,7 +44,9 @@ def run_demo(args: argparse.Namespace) -> None:
         replication_df.to_csv(out_dir / "multi_seed_statistics.csv", index=False)
     write_result_exports(metrics, out_dir)
     write_markdown_report(metrics, out_dir / "summary_report.md")
-    plot_all_trajectories(out_dir if len(seeds) == 1 else out_dir / "replications" / f"seed_{seeds[0]}")
+    plot_source = out_dir if len(seeds) == 1 else out_dir / "replications" / f"seed_{seeds[0]}"
+    plot_all_trajectories(plot_source)
+    generate_behavior_visualizations(plot_source, config_path=args.config)
     logger.info("[OK] Demo results saved to: %s", out_dir)
 
 
@@ -120,6 +123,13 @@ def make_parser() -> argparse.ArgumentParser:
     d.add_argument("--seeds", default=None, help="Comma-separated seeds; all cases use the same seed within each replication")
     d.set_defaults(func=run_demo)
 
+    ns = sub.add_parser("no-sumo", help="Run the pure-Python cases and generate Excel, plots, and behavioral replays without SUMO")
+    ns.add_argument("--config", default="configs/no_sumo_30_cases.json")
+    ns.add_argument("--out", default="results/no_sumo_30_cases")
+    ns.add_argument("--case", default=None, help="Optional single case ID; omit to run all configured cases")
+    ns.add_argument("--seeds", default="42", help="Comma-separated seeds; use one seed for behavioral replay")
+    ns.set_defaults(func=run_demo)
+
     pre = sub.add_parser("preprocess-osm", help="Convert OpenStreetMap input to SUMO network/routes/config")
     pre.add_argument("--osm-file", default=None, help="Path to exported .osm or .osm.xml file")
     pre.add_argument("--bbox", default=None, help="south,west,north,east. Requires internet + osmnx")
@@ -163,6 +173,12 @@ def make_parser() -> argparse.ArgumentParser:
     pl = sub.add_parser("plot", help="Regenerate plots from result CSV files")
     pl.add_argument("--results", default="results/demo")
     pl.set_defaults(func=lambda args: plot_all_trajectories(args.results))
+
+    vz = sub.add_parser("visualize-no-sumo", help="Regenerate behavioral replays from NO-SUMO CSV results")
+    vz.add_argument("--results", default="results/no_sumo_30_cases")
+    vz.add_argument("--frame-step", type=float, default=0.25)
+    vz.add_argument("--config", default="configs/no_sumo_30_cases.json")
+    vz.set_defaults(func=lambda args: generate_behavior_visualizations(args.results, args.frame_step, args.config))
     return p
 
 

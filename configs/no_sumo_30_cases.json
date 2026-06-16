@@ -1,0 +1,652 @@
+{
+  "global": {
+    "duration_s": 90.0,
+    "step_length_s": 0.1,
+    "seed": 42,
+    "vehicle_length_m": 4.5,
+    "collision_gap_m": 0.7,
+    "safe_ttc_s": 3.0,
+    "driver_reaction_time_s": 1.0,
+    "visual_detection_ttc_s": 1.2,
+    "visual_detection_gap_m": 6.0,
+    "seeds": [
+      42,
+      43,
+      44,
+      45,
+      46
+    ],
+    "target_receiver_radius_m": 650.0
+  },
+  "synthetic_platoon": {
+    "num_vehicles": 30,
+    "initial_speed_mps": 22.0,
+    "gap_m": 16.0,
+    "incident_time_s": 20.0,
+    "incident_vehicle_index": 0,
+    "emergency_decel_mps2": 8.0,
+    "normal_decel_mps2": 3.5,
+    "warning_decel_mps2": 6.0,
+    "min_speed_after_warning_mps": 4.0,
+    "target_radius_m": 650.0
+  },
+  "protocols": {
+    "DSRC_80211p": {
+      "protocol": "DSRC_80211p",
+      "data_rate_bps": 6000000,
+      "base_delay_s": 0.02,
+      "processing_delay_s": 0.005,
+      "queue_delay_s": 0.0,
+      "header_size_bytes": 48,
+      "payload_size_bytes": 252,
+      "packet_size_bytes": 300,
+      "communication_range_m": 70.0,
+      "loss_probability": 0.005,
+      "bit_error_rate": 1e-06
+    },
+    "CV2X_PC5": {
+      "protocol": "CV2X_PC5",
+      "data_rate_bps": 10000000,
+      "base_delay_s": 0.03,
+      "processing_delay_s": 0.005,
+      "queue_delay_s": 0.0,
+      "header_size_bytes": 56,
+      "payload_size_bytes": 244,
+      "packet_size_bytes": 300,
+      "communication_range_m": 90.0,
+      "loss_probability": 0.003,
+      "bit_error_rate": 4e-07
+    },
+    "V2I_LTE_5G": {
+      "protocol": "V2I_LTE_5G",
+      "data_rate_bps": 20000000,
+      "base_delay_s": 0.04,
+      "uplink_base_delay_s": 0.035,
+      "downlink_base_delay_s": 0.035,
+      "processing_delay_s": 0.02,
+      "queue_delay_s": 0.0,
+      "header_size_bytes": 64,
+      "payload_size_bytes": 236,
+      "packet_size_bytes": 300,
+      "rsu_range_m": 800.0,
+      "loss_probability": 0.002,
+      "auto_rsus_from_junctions": true,
+      "max_auto_rsus": 20,
+      "bit_error_rate": 2e-07,
+      "downlink_accounting": "broadcast"
+    }
+  },
+  "channel_default": {
+    "protocol": "DSRC_80211p",
+    "communication_range_m": 70.0,
+    "packet_size_bytes": 300,
+    "loss_probability": 0.005,
+    "rebroadcast_delay_s": 0.05,
+    "max_hops": 1,
+    "protocol_mode": true,
+    "bit_error_rate": 1e-06
+  },
+  "v2i_default": {
+    "protocol": "V2I_LTE_5G",
+    "packet_size_bytes": 300,
+    "rsu_range_m": 800.0,
+    "loss_probability": 0.002,
+    "auto_rsus_from_junctions": true,
+    "max_auto_rsus": 20,
+    "bit_error_rate": 2e-07,
+    "downlink_accounting": "broadcast"
+  },
+  "cases": [
+    {
+      "id": "C0_normal_no_incident",
+      "name": "Baseline - normal traffic without incident",
+      "description_vi": "Xe chạy bình thường, không có phanh gấp.",
+      "incident_enabled": false,
+      "warning_enabled": false,
+      "communication_mode": "none",
+      "experiment_group": "Baselines and reference cases",
+      "varied_factor": "setup",
+      "factor_value": "none"
+    },
+    {
+      "id": "C1_accident_no_warning",
+      "name": "Baseline - sudden brake without VANET warning",
+      "description_vi": "Xe đầu phanh gấp nhưng không có cảnh báo VANET.",
+      "incident_enabled": true,
+      "warning_enabled": false,
+      "communication_mode": "none",
+      "experiment_group": "Baselines and reference cases",
+      "varied_factor": "setup",
+      "factor_value": "none"
+    },
+    {
+      "id": "C2_v2v_direct_dsrc_300B",
+      "name": "Direct V2V, DSRC-like, 300-byte packet",
+      "description_vi": "Cảnh báo V2V một chặng trong vùng phủ sóng.",
+      "incident_enabled": true,
+      "warning_enabled": true,
+      "communication_mode": "v2v",
+      "multi_hop": false,
+      "protocol": "DSRC_80211p",
+      "control_algorithm": "ttc_adaptive",
+      "channel": {
+        "packet_size_bytes": 300,
+        "max_hops": 1
+      },
+      "experiment_group": "DSRC hop behavior",
+      "varied_factor": "direct vs multi-hop",
+      "factor_value": 300
+    },
+    {
+      "id": "C3_v2v_multihop_dsrc_300B",
+      "name": "Multi-hop V2V, DSRC-like, 300-byte packet",
+      "description_vi": "Xe nhận cảnh báo sẽ phát lại cho xe phía sau.",
+      "incident_enabled": true,
+      "warning_enabled": true,
+      "communication_mode": "v2v",
+      "multi_hop": true,
+      "protocol": "DSRC_80211p",
+      "control_algorithm": "ttc_adaptive",
+      "channel": {
+        "packet_size_bytes": 300,
+        "max_hops": 8
+      },
+      "experiment_group": "DSRC hop behavior",
+      "varied_factor": "direct vs multi-hop",
+      "factor_value": 300
+    },
+    {
+      "id": "C4_v2i_lte_5g_300B",
+      "name": "V2I with RSU, LTE/5G-like, 300-byte packet",
+      "description_vi": "Xe gửi cảnh báo tới RSU, RSU phát xuống các xe trong vùng phủ sóng.",
+      "incident_enabled": true,
+      "warning_enabled": true,
+      "communication_mode": "v2i",
+      "multi_hop": false,
+      "v2i_protocol": "V2I_LTE_5G",
+      "control_algorithm": "ttc_adaptive",
+      "v2i": {
+        "packet_size_bytes": 300
+      },
+      "experiment_group": "Communication architecture",
+      "varied_factor": "mode",
+      "factor_value": 300
+    },
+    {
+      "id": "C5_hybrid_v2v_v2i_300B",
+      "name": "Hybrid V2V + V2I, 300-byte packet",
+      "description_vi": "Kết hợp truyền trực tiếp V2V và phát cảnh báo qua RSU.",
+      "incident_enabled": true,
+      "warning_enabled": true,
+      "communication_mode": "hybrid",
+      "multi_hop": true,
+      "protocol": "DSRC_80211p",
+      "v2i_protocol": "V2I_LTE_5G",
+      "control_algorithm": "ttc_adaptive",
+      "channel": {
+        "packet_size_bytes": 300,
+        "max_hops": 8
+      },
+      "v2i": {
+        "packet_size_bytes": 300
+      },
+      "experiment_group": "Communication architecture",
+      "varied_factor": "mode",
+      "factor_value": 300
+    },
+    {
+      "id": "C6_v2v_multihop_packet_100B",
+      "name": "Packet-size test - V2V multi-hop, 100 bytes",
+      "incident_enabled": true,
+      "warning_enabled": true,
+      "communication_mode": "v2v",
+      "multi_hop": true,
+      "protocol": "DSRC_80211p",
+      "control_algorithm": "ttc_adaptive",
+      "channel": {
+        "packet_size_bytes": 100,
+        "max_hops": 8
+      },
+      "experiment_group": "DSRC packet size",
+      "varied_factor": "packet_size_bytes",
+      "factor_value": 100
+    },
+    {
+      "id": "C7_v2v_multihop_packet_600B",
+      "name": "Packet-size test - V2V multi-hop, 600 bytes",
+      "incident_enabled": true,
+      "warning_enabled": true,
+      "communication_mode": "v2v",
+      "multi_hop": true,
+      "protocol": "DSRC_80211p",
+      "control_algorithm": "ttc_adaptive",
+      "channel": {
+        "packet_size_bytes": 600,
+        "max_hops": 8
+      },
+      "experiment_group": "DSRC packet size",
+      "varied_factor": "packet_size_bytes",
+      "factor_value": 600
+    },
+    {
+      "id": "C8_v2v_multihop_packet_1400B",
+      "name": "Packet-size test - V2V multi-hop, 1400 bytes",
+      "incident_enabled": true,
+      "warning_enabled": true,
+      "communication_mode": "v2v",
+      "multi_hop": true,
+      "protocol": "DSRC_80211p",
+      "control_algorithm": "ttc_adaptive",
+      "channel": {
+        "packet_size_bytes": 1400,
+        "max_hops": 8
+      },
+      "experiment_group": "DSRC packet size",
+      "varied_factor": "packet_size_bytes",
+      "factor_value": 1400
+    },
+    {
+      "id": "C9_v2i_packet_100B",
+      "name": "Packet-size test - V2I, 100 bytes",
+      "incident_enabled": true,
+      "warning_enabled": true,
+      "communication_mode": "v2i",
+      "v2i_protocol": "V2I_LTE_5G",
+      "control_algorithm": "ttc_adaptive",
+      "v2i": {
+        "packet_size_bytes": 100
+      },
+      "experiment_group": "V2I packet size",
+      "varied_factor": "packet_size_bytes",
+      "factor_value": 100
+    },
+    {
+      "id": "C10_v2i_packet_600B",
+      "name": "Packet-size test - V2I, 600 bytes",
+      "incident_enabled": true,
+      "warning_enabled": true,
+      "communication_mode": "v2i",
+      "v2i_protocol": "V2I_LTE_5G",
+      "control_algorithm": "ttc_adaptive",
+      "v2i": {
+        "packet_size_bytes": 600
+      },
+      "experiment_group": "V2I packet size",
+      "varied_factor": "packet_size_bytes",
+      "factor_value": 600
+    },
+    {
+      "id": "C11_v2i_packet_1400B",
+      "name": "Packet-size test - V2I, 1400 bytes",
+      "incident_enabled": true,
+      "warning_enabled": true,
+      "communication_mode": "v2i",
+      "v2i_protocol": "V2I_LTE_5G",
+      "control_algorithm": "ttc_adaptive",
+      "v2i": {
+        "packet_size_bytes": 1400
+      },
+      "experiment_group": "V2I packet size",
+      "varied_factor": "packet_size_bytes",
+      "factor_value": 1400
+    },
+    {
+      "id": "C12_v2v_cv2x_packet_600B",
+      "name": "Protocol test - V2V C-V2X-like, 600 bytes",
+      "incident_enabled": true,
+      "warning_enabled": true,
+      "communication_mode": "v2v",
+      "multi_hop": true,
+      "protocol": "CV2X_PC5",
+      "control_algorithm": "ttc_adaptive",
+      "channel": {
+        "packet_size_bytes": 600,
+        "max_hops": 8,
+        "communication_range_m": 70.0
+      },
+      "description_vi": "So sánh giao thức với C7 ở cùng packet 600 B, multi-hop, bộ điều khiển và vùng phủ 70 m.",
+      "experiment_group": "Protocol comparison at controlled setup",
+      "varied_factor": "protocol",
+      "factor_value": 600
+    },
+    {
+      "id": "C13_v2v_direct_preemptive_dsrc_300B",
+      "name": "Control matrix - direct V2V with preemptive braking",
+      "description_vi": "Giữ DSRC 300 B và direct V2V, chỉ thay bộ điều khiển sang preemptive brake.",
+      "incident_enabled": true,
+      "warning_enabled": true,
+      "communication_mode": "v2v",
+      "multi_hop": false,
+      "protocol": "DSRC_80211p",
+      "control_algorithm": "preemptive_brake",
+      "channel": {
+        "packet_size_bytes": 300,
+        "max_hops": 1
+      },
+      "experiment_group": "DSRC controller and hop matrix",
+      "varied_factor": "control_algorithm / hop mode",
+      "factor_value": 300
+    },
+    {
+      "id": "C14_v2v_multihop_preemptive_dsrc_300B",
+      "name": "Control matrix - multi-hop V2V with preemptive braking",
+      "description_vi": "Giữ DSRC 300 B và preemptive brake, chỉ thay direct thành multi-hop.",
+      "incident_enabled": true,
+      "warning_enabled": true,
+      "communication_mode": "v2v",
+      "multi_hop": true,
+      "protocol": "DSRC_80211p",
+      "control_algorithm": "preemptive_brake",
+      "channel": {
+        "packet_size_bytes": 300,
+        "max_hops": 12
+      },
+      "experiment_group": "DSRC controller and hop matrix",
+      "varied_factor": "control_algorithm / hop mode",
+      "factor_value": 300
+    },
+    {
+      "id": "C15_v2v_direct_emergency_dsrc_300B",
+      "name": "Control matrix - direct V2V with emergency braking",
+      "incident_enabled": true,
+      "warning_enabled": true,
+      "communication_mode": "v2v",
+      "multi_hop": false,
+      "protocol": "DSRC_80211p",
+      "control_algorithm": "emergency_brake",
+      "channel": {
+        "packet_size_bytes": 300,
+        "max_hops": 1
+      },
+      "experiment_group": "DSRC controller and hop matrix",
+      "varied_factor": "control_algorithm / hop mode",
+      "factor_value": 300
+    },
+    {
+      "id": "C16_v2v_multihop_emergency_dsrc_300B",
+      "name": "Control matrix - multi-hop V2V with emergency braking",
+      "incident_enabled": true,
+      "warning_enabled": true,
+      "communication_mode": "v2v",
+      "multi_hop": true,
+      "protocol": "DSRC_80211p",
+      "control_algorithm": "emergency_brake",
+      "channel": {
+        "packet_size_bytes": 300,
+        "max_hops": 12
+      },
+      "experiment_group": "DSRC controller and hop matrix",
+      "varied_factor": "control_algorithm / hop mode",
+      "factor_value": 300
+    },
+    {
+      "id": "C17_v2v_cv2x_packet_100B",
+      "name": "Protocol/packet matrix - C-V2X 100 bytes",
+      "incident_enabled": true,
+      "warning_enabled": true,
+      "communication_mode": "v2v",
+      "multi_hop": true,
+      "protocol": "CV2X_PC5",
+      "control_algorithm": "ttc_adaptive",
+      "channel": {
+        "packet_size_bytes": 100,
+        "max_hops": 12,
+        "communication_range_m": 70.0
+      },
+      "experiment_group": "C-V2X packet size",
+      "varied_factor": "packet_size_bytes",
+      "factor_value": 100
+    },
+    {
+      "id": "C18_v2v_cv2x_packet_300B",
+      "name": "Protocol/packet matrix - C-V2X 300 bytes",
+      "incident_enabled": true,
+      "warning_enabled": true,
+      "communication_mode": "v2v",
+      "multi_hop": true,
+      "protocol": "CV2X_PC5",
+      "control_algorithm": "ttc_adaptive",
+      "channel": {
+        "packet_size_bytes": 300,
+        "max_hops": 12,
+        "communication_range_m": 70.0
+      },
+      "experiment_group": "C-V2X packet size",
+      "varied_factor": "packet_size_bytes",
+      "factor_value": 300
+    },
+    {
+      "id": "C19_v2v_cv2x_packet_1400B",
+      "name": "Protocol/packet matrix - C-V2X 1400 bytes",
+      "incident_enabled": true,
+      "warning_enabled": true,
+      "communication_mode": "v2v",
+      "multi_hop": true,
+      "protocol": "CV2X_PC5",
+      "control_algorithm": "ttc_adaptive",
+      "channel": {
+        "packet_size_bytes": 1400,
+        "max_hops": 12,
+        "communication_range_m": 70.0
+      },
+      "experiment_group": "C-V2X packet size",
+      "varied_factor": "packet_size_bytes",
+      "factor_value": 1400
+    },
+    {
+      "id": "C20_v2i_broadcast_600B",
+      "name": "V2I accounting - RSU broadcast, 600 bytes",
+      "incident_enabled": true,
+      "warning_enabled": true,
+      "communication_mode": "v2i",
+      "v2i_protocol": "V2I_LTE_5G",
+      "control_algorithm": "ttc_adaptive",
+      "v2i": {
+        "packet_size_bytes": 600,
+        "downlink_accounting": "broadcast"
+      },
+      "experiment_group": "V2I accounting",
+      "varied_factor": "downlink_accounting",
+      "factor_value": 600
+    },
+    {
+      "id": "C21_v2i_unicast_600B",
+      "name": "V2I accounting - per-receiver unicast, 600 bytes",
+      "incident_enabled": true,
+      "warning_enabled": true,
+      "communication_mode": "v2i",
+      "v2i_protocol": "V2I_LTE_5G",
+      "control_algorithm": "ttc_adaptive",
+      "v2i": {
+        "packet_size_bytes": 600,
+        "downlink_accounting": "unicast"
+      },
+      "experiment_group": "V2I accounting",
+      "varied_factor": "downlink_accounting",
+      "factor_value": 600
+    },
+    {
+      "id": "C22_density_low_12cars",
+      "name": "Density test - 12 vehicles",
+      "incident_enabled": true,
+      "warning_enabled": true,
+      "communication_mode": "v2v",
+      "multi_hop": true,
+      "protocol": "DSRC_80211p",
+      "control_algorithm": "ttc_adaptive",
+      "synthetic_override": {
+        "num_vehicles": 12,
+        "target_radius_m": 650.0
+      },
+      "channel": {
+        "packet_size_bytes": 300,
+        "max_hops": 12
+      },
+      "experiment_group": "DSRC vehicle density",
+      "varied_factor": "num_vehicles",
+      "factor_value": 300
+    },
+    {
+      "id": "C23_density_medium_30cars",
+      "name": "Density test - 30 vehicles",
+      "incident_enabled": true,
+      "warning_enabled": true,
+      "communication_mode": "v2v",
+      "multi_hop": true,
+      "protocol": "DSRC_80211p",
+      "control_algorithm": "ttc_adaptive",
+      "synthetic_override": {
+        "num_vehicles": 30,
+        "target_radius_m": 650.0
+      },
+      "channel": {
+        "packet_size_bytes": 300,
+        "max_hops": 16
+      },
+      "experiment_group": "DSRC vehicle density",
+      "varied_factor": "num_vehicles",
+      "factor_value": 300
+    },
+    {
+      "id": "C24_density_high_50cars",
+      "name": "Density stress test - 50 vehicles",
+      "incident_enabled": true,
+      "warning_enabled": true,
+      "communication_mode": "v2v",
+      "multi_hop": true,
+      "protocol": "DSRC_80211p",
+      "control_algorithm": "ttc_adaptive",
+      "synthetic_override": {
+        "num_vehicles": 50,
+        "target_radius_m": 1100.0
+      },
+      "channel": {
+        "packet_size_bytes": 300,
+        "max_hops": 25
+      },
+      "experiment_group": "DSRC vehicle density",
+      "varied_factor": "num_vehicles",
+      "factor_value": 300
+    },
+    {
+      "id": "C25_hybrid_broadcast_600B",
+      "name": "Hybrid redundancy test - broadcast V2I, 600 bytes",
+      "incident_enabled": true,
+      "warning_enabled": true,
+      "communication_mode": "hybrid",
+      "multi_hop": true,
+      "protocol": "DSRC_80211p",
+      "v2i_protocol": "V2I_LTE_5G",
+      "control_algorithm": "ttc_adaptive",
+      "channel": {
+        "packet_size_bytes": 600,
+        "max_hops": 16
+      },
+      "v2i": {
+        "packet_size_bytes": 600,
+        "downlink_accounting": "broadcast"
+      },
+      "experiment_group": "Hybrid accounting",
+      "varied_factor": "downlink_accounting",
+      "factor_value": 600
+    },
+    {
+      "id": "C26_hybrid_unicast_600B",
+      "name": "Hybrid redundancy test - unicast V2I, 600 bytes",
+      "incident_enabled": true,
+      "warning_enabled": true,
+      "communication_mode": "hybrid",
+      "multi_hop": true,
+      "protocol": "DSRC_80211p",
+      "v2i_protocol": "V2I_LTE_5G",
+      "control_algorithm": "ttc_adaptive",
+      "channel": {
+        "packet_size_bytes": 600,
+        "max_hops": 16
+      },
+      "v2i": {
+        "packet_size_bytes": 600,
+        "downlink_accounting": "unicast"
+      },
+      "experiment_group": "Hybrid accounting",
+      "varied_factor": "downlink_accounting",
+      "factor_value": 600
+    },
+    {
+      "id": "C27_dsrc_short_range_40m",
+      "name": "DSRC sensitivity - short communication range 40 m",
+      "description_vi": "Giữ DSRC 300 B, multi-hop và TTC adaptive; chỉ giảm vùng phủ từ 70 m xuống 40 m để quan sát đứt chuỗi truyền cảnh báo.",
+      "incident_enabled": true,
+      "warning_enabled": true,
+      "communication_mode": "v2v",
+      "multi_hop": true,
+      "protocol": "DSRC_80211p",
+      "control_algorithm": "ttc_adaptive",
+      "experiment_group": "DSRC internal sensitivity",
+      "varied_factor": "communication_range_m",
+      "factor_value": "40 m",
+      "channel": {
+        "packet_size_bytes": 300,
+        "max_hops": 16,
+        "communication_range_m": 40.0
+      }
+    },
+    {
+      "id": "C28_dsrc_high_error_channel",
+      "name": "DSRC sensitivity - degraded radio channel",
+      "description_vi": "Giữ DSRC 300 B, 70 m và multi-hop; chỉ tăng BER và xác suất mất nền để thể hiện khoảng trống trong lan truyền cảnh báo.",
+      "incident_enabled": true,
+      "warning_enabled": true,
+      "communication_mode": "v2v",
+      "multi_hop": true,
+      "protocol": "DSRC_80211p",
+      "control_algorithm": "ttc_adaptive",
+      "experiment_group": "DSRC internal sensitivity",
+      "varied_factor": "BER/PER",
+      "factor_value": "BER=2e-5, base loss=0.03",
+      "channel": {
+        "packet_size_bytes": 300,
+        "max_hops": 16,
+        "communication_range_m": 70.0,
+        "bit_error_rate": 2e-05,
+        "loss_probability": 0.03
+      }
+    },
+    {
+      "id": "C29_dsrc_congested_latency",
+      "name": "DSRC sensitivity - congested channel latency",
+      "description_vi": "Giữ DSRC 300 B, 70 m và độ tin cậy mặc định; chỉ tăng queue delay và rebroadcast delay để quan sát cảnh báo đến muộn và phản ứng phanh trễ.",
+      "incident_enabled": true,
+      "warning_enabled": true,
+      "communication_mode": "v2v",
+      "multi_hop": true,
+      "protocol": "DSRC_80211p",
+      "control_algorithm": "ttc_adaptive",
+      "experiment_group": "DSRC internal sensitivity",
+      "varied_factor": "queue/rebroadcast delay",
+      "factor_value": "queue=80 ms, rebroadcast=150 ms",
+      "channel": {
+        "packet_size_bytes": 300,
+        "max_hops": 16,
+        "communication_range_m": 70.0,
+        "queue_delay_s": 0.08,
+        "rebroadcast_delay_s": 0.15
+      }
+    }
+  ],
+  "sumo_fixed_incident": {
+    "enabled": true,
+    "edge_id": "",
+    "lane_id": "",
+    "position_m": null,
+    "time_s": 25.0,
+    "search_radius_m": 80.0,
+    "fallback_after_s": 8.0,
+    "min_speed_mps": 1.0,
+    "target_radius_m": 600.0,
+    "auto_position_ratio": 0.55,
+    "wait_log_interval_s": 1.0,
+    "slow_down_duration_s": 2.0,
+    "note": "Leave edge_id/lane_id empty to auto-lock a deterministic fixed accident point on the densest lane. After a SUMO run, check results/incident_locations.csv or results.xlsx."
+  }
+}

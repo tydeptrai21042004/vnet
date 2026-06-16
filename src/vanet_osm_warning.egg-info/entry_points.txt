@@ -1,0 +1,2 @@
+[console_scripts]
+vanet-warning = vanet_osm_warning.cli:main

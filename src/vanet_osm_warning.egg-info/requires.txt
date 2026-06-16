@@ -1,0 +1,15 @@
+numpy>=1.23
+pandas>=1.5
+matplotlib>=3.7
+tabulate
+openpyxl>=3.1
+
+[dev]
+pytest>=8
+
+[osm]
+osmnx>=1.9
+
+[sumo]
+traci>=1.18
+sumolib>=1.18

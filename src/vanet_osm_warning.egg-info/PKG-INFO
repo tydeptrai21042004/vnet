@@ -1,0 +1,17 @@
+Metadata-Version: 2.4
+Name: vanet-osm-warning
+Version: 1.1.0
+Summary: VANET V2V/V2I road-accident warning simulation with SUMO/TraCI and fixed incident exports
+Requires-Python: >=3.9
+Requires-Dist: numpy>=1.23
+Requires-Dist: pandas>=1.5
+Requires-Dist: matplotlib>=3.7
+Requires-Dist: tabulate
+Requires-Dist: openpyxl>=3.1
+Provides-Extra: dev
+Requires-Dist: pytest>=8; extra == "dev"
+Provides-Extra: sumo
+Requires-Dist: traci>=1.18; extra == "sumo"
+Requires-Dist: sumolib>=1.18; extra == "sumo"
+Provides-Extra: osm
+Requires-Dist: osmnx>=1.9; extra == "osm"
